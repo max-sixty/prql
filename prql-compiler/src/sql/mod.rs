@@ -19,6 +19,7 @@ use self::{context::AnchorContext, dialect::DialectHandler};
 
 /// Translate a PRQL AST into a SQL string.
 pub fn compile(query: Query, options: &Options) -> Result<String> {
+    dbg!(&query);
     let crate::Target::Sql(dialect) = options.target;
     let sql_ast = gen_query::translate_query(query, dialect)?;
 

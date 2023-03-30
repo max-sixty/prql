@@ -159,6 +159,7 @@ fn translate_exclude(
     ctx: &mut Context,
     excluded: HashSet<CId>,
 ) -> Option<WildcardAdditionalOptions> {
+    dbg!(&ctx);
     let excluded = as_col_names(&excluded, &ctx.anchor);
 
     let Some(supported) = ctx.dialect.column_exclude() else {
@@ -168,7 +169,7 @@ fn translate_exclude(
         if log::log_enabled!(log::Level::Warn) {
             let excluded = excluded.join(", ");
 
-            log::warn!("Columns {excluded} will be included with *, but were not requested.")
+panic!();
         }
         return None;
     };

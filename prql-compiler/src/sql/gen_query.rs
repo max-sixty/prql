@@ -68,7 +68,7 @@ fn sql_query_of_sql_relation(
         // base case
         SqlRelationKind::Super(Pipeline(pipeline)) => {
             // preprocess
-            let pipeline = Ok(pipeline)
+            let pipeline = dbg!(Ok(pipeline)
                 .map(preprocess::normalize)
                 .map(preprocess::prune_inputs)
                 .map(preprocess::wrap)
@@ -76,12 +76,13 @@ fn sql_query_of_sql_relation(
                 .map(preprocess::union)
                 .and_then(|p| preprocess::except(p, ctx))
                 .and_then(|p| preprocess::intersect(p, ctx))
-                .map(preprocess::reorder)?;
+                .map(preprocess::reorder)?);
 
             // load names of output columns
             ctx.anchor.load_names(&pipeline, sql_relation.columns);
 
-            sql_query_of_pipeline(pipeline, ctx)
+            // 2079 — we still have the final select in the pipeline here
+            sql_query_of_pipeline(dbg!(pipeline), ctx)
         }
 
         // no need to preprocess, has been done already
@@ -201,7 +202,7 @@ fn sql_query_of_pipeline(
     }
 
     // extract an atomic pipeline from back of the pipeline and stash preceding part into context
-    let pipeline = extract_atomic(pipeline, &mut ctx.anchor);
+    let pipeline = dbg!(extract_atomic(pipeline, &mut ctx.anchor));
 
     // ensure names for all columns that need it
     ensure_names(&pipeline, &mut ctx.anchor);
@@ -209,7 +210,7 @@ fn sql_query_of_pipeline(
     let (select, set_ops) =
         pipeline.break_up(|t| matches!(t, Union { .. } | Except { .. } | Intersect { .. }));
 
-    let select = sql_select_query_of_pipeline(select, ctx)?;
+    let select = dbg!(sql_select_query_of_pipeline(dbg!(select), ctx)?);
 
     sql_set_ops_of_pipeline(select, set_ops, ctx)
 }
