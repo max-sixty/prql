@@ -44,7 +44,10 @@ pub fn translate_query(query: Query, dialect: Option<Dialect>) -> Result<sql_ast
     let mut ctx = Context::new(dialect, anchor);
 
     // compile main relation that will recursively compile CTEs
-    let mut main_query = sql_query_of_sql_relation(main_relation.into(), &mut ctx)?;
+    let mut main_query = dbg!(sql_query_of_sql_relation(
+        dbg!(main_relation).into(),
+        &mut ctx
+    )?);
 
     // attach CTEs
     if !ctx.ctes.is_empty() {
@@ -81,8 +84,7 @@ fn sql_query_of_sql_relation(
             // load names of output columns
             ctx.anchor.load_names(&pipeline, sql_relation.columns);
 
-            // 2079 — we still have the final select in the pipeline here
-            sql_query_of_pipeline(dbg!(pipeline), ctx)
+            sql_query_of_pipeline(dbg!(pipeline), dbg!(ctx))
         }
 
         // no need to preprocess, has been done already
