@@ -251,13 +251,14 @@ fn sql_select_query_of_pipeline(
         }
     }
 
-    let projection = pipeline
+    let projection = dbg!(dbg!(pipeline.clone())
         .pluck(|t| t.into_super_and(|t| t.into_select()))
         .into_iter()
         .exactly_one()
-        .unwrap();
-    let projection = translate_wildcards(&ctx.anchor, projection);
-    let projection = translate_select_items(projection.0, projection.1, ctx)?;
+        .unwrap());
+    // panic!();
+    let projection = dbg!(translate_wildcards(&ctx.anchor, projection));
+    let projection = dbg!(translate_select_items(projection.0, projection.1, ctx)?);
 
     let sorts = pipeline.pluck(|t| t.into_super_and(|t| t.into_sort()));
     let takes = pipeline.pluck(|t| t.into_super_and(|t| t.into_take()));

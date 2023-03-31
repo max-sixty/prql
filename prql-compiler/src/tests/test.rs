@@ -3394,24 +3394,24 @@ fn test_2079() {
     let sql = compile(
         r#"
     from foo
-    derive d = x + 1
+    derive d = x
     sort d
     select [col]
     "#,
     )
     .unwrap();
 
-    assert!(!sql.contains("_expr_0"));
-
     assert_display_snapshot!(sql,
         @r###"
     SELECT
       col,
-      x + 1 AS _expr_0
+      x AS _expr_0
     FROM
       foo
     ORDER BY
       _expr_0
     "###
     );
+
+    assert!(!sql.contains("_expr_0"));
 }
