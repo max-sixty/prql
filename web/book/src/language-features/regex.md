@@ -28,7 +28,7 @@ from tracks
 filter (name ~= "\\bLove\\b")
 ```
 
-```prql no-fmt
+```prql
 prql target:sql.postgres
 
 from tracks
