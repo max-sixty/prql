@@ -585,4 +585,20 @@ mod test {
         let pipeline = pl::Expr::from(pl::ExprKind::Pipeline(pl::Pipeline { exprs: vec![short] }));
         assert!(pipeline.write(opt).is_none());
     }
+
+    #[test]
+    fn test_escape() {
+        use itertools::Itertools;
+
+        let escaped_string = crate::prql_to_pl(r#"let a = some \\(string\\)"#)
+            .unwrap()
+            .into_iter()
+            .exactly_one()
+            .unwrap();
+        // let escaped_string = pl::Expr::from(pl::ExprKind::Literal(pl::Literal::String(
+        //     r#"some \\(string\\)"#.to_string(),
+        // )));
+
+        assert_snapshot!(escaped_string.write(WriteOpt::default()).unwrap(), @r###""some \\(string\\)""###);
+    }
 }
