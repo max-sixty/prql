@@ -25,20 +25,17 @@ identifiers) in the `SELECT` statement:
 
 ```prql
 prql target:sql.bigquery
+
 from `project-foo.dataset.table`
-join `project-bar.dataset.table` [==col_bax]
+join `project-bar.dataset.table` (==col_bax)
 ```
 
-## Quoting schemas
+## Schemas & database names
 
-```admonish note
-This is currently not great and we are working on improving it; see
-https://github.com/PRQL/prql/issues/1535 for progress.
-```
-
-If supplying a schema without a column — for example in a `from` or `join`
-transform, that also needs to be a quoted identifier:
+Identifiers of tables can be prefixed with schema and databases names. Note that
+all of following identifiers will be treated as separate table definitions:
+`tracks`, `public.tracks`, `my_database.public.tracks`.
 
 ```prql
-from `music.albums`
+from my_database.chinook.albums
 ```

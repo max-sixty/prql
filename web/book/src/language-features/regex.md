@@ -28,9 +28,23 @@ from tracks
 filter (name ~= "\\bLove\\b")
 ```
 
-```prql no-fmt
+```prql
 prql target:sql.postgres
 
 from tracks
 filter (name ~= "\\(I Can't Help\\) Falling")
+```
+
+```prql
+prql target:sql.mysql
+
+from tracks
+filter (name ~= "With You")
+```
+
+```prql
+prql target:sql.sqlite
+
+from tracks
+filter (name ~= "But Why Isn't Your Syntax More Similar\\?")
 ```

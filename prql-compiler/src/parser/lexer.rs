@@ -30,6 +30,8 @@ pub enum Token {
     And,         // &&
     Or,          // ||
     Coalesce,    // ??
+    DivInt,      // //
+    Annotate,    // @
 }
 
 pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
@@ -47,18 +49,22 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
         just("&&").then_ignore(end_expr()).to(Token::And),
         just("||").then_ignore(end_expr()).to(Token::Or),
         just("??").to(Token::Coalesce),
+        just("//").to(Token::DivInt),
+        just("@").then(digits(1).not().rewind()).to(Token::Annotate),
     ));
 
-    let control = one_of("></%=+-*[]().,:|!").map(Token::Control);
+    let control = one_of("></%=+-*[]().,:|!{}").map(Token::Control);
 
     let ident = ident_part().map(Token::Ident);
 
     let keyword = choice((
-        just("func"),
         just("let"),
+        just("into"),
         just("case"),
         just("prql"),
         just("type"),
+        just("module"),
+        just("internal"),
     ))
     .then_ignore(end_expr())
     .map(|x| x.to_string())
@@ -250,19 +256,22 @@ fn literal() -> impl Parser<char, Literal, Error = Cheap<char>> {
         )
         .boxed();
 
-    let date = just('@')
+    // Not an annotation
+    let dt_prefix = just('@').then(just('{').not().rewind());
+
+    let date = dt_prefix
         .ignore_then(date_inner.clone())
         .then_ignore(end_expr())
         .collect::<String>()
         .map(Literal::Date);
 
-    let time = just('@')
+    let time = dt_prefix
         .ignore_then(time_inner.clone())
         .then_ignore(end_expr())
         .collect::<String>()
         .map(Literal::Time);
 
-    let datetime = just('@')
+    let datetime = dt_prefix
         .ignore_then(date_inner)
         .chain(just('T'))
         .chain::<char, _, _>(time_inner)
@@ -351,7 +360,7 @@ fn digits(count: usize) -> impl Parser<char, Vec<char>, Error = Cheap<char>> {
 }
 
 fn end_expr() -> impl Parser<char, (), Error = Cheap<char>> {
-    choice((end(), one_of(",)]\r\n\t ").ignored(), just("..").ignored())).rewind()
+    choice((end(), one_of(",)]}\r\n\t ").ignored(), just("..").ignored())).rewind()
 }
 
 impl Token {
@@ -367,7 +376,7 @@ impl Token {
 // There are reasons for that, but chumsky::Error needs Hash for the Token, so it can deduplicate
 // tokens in error.
 // So this hack could lead to duplicated tokens in error messages. Oh no.
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl std::hash::Hash for Token {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
@@ -401,6 +410,8 @@ impl std::fmt::Display for Token {
             Self::And => f.write_str("&&"),
             Self::Or => f.write_str("||"),
             Self::Coalesce => f.write_str("??"),
+            Self::DivInt => f.write_str("//"),
+            Self::Annotate => f.write_str("@{"),
 
             Self::Param(id) => write!(f, "${id}"),
 

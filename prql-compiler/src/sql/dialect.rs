@@ -15,11 +15,8 @@
 use core::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::{self as sql_ast, Function, FunctionArg, FunctionArgExpr, ObjectName};
 use std::any::{Any, TypeId};
 use strum::VariantNames;
-
-use crate::Error;
 
 /// SQL dialect.
 ///
@@ -35,6 +32,7 @@ use crate::Error;
     Clone,
     Copy,
     Serialize,
+    Default,
     Deserialize,
     strum::Display,
     strum::EnumIter,
@@ -48,6 +46,7 @@ pub enum Dialect {
     BigQuery,
     ClickHouse,
     DuckDb,
+    #[default]
     Generic,
     Hive,
     MsSql,
@@ -76,16 +75,30 @@ impl Dialect {
         }
     }
 
+    pub fn support_level(&self) -> SupportLevel {
+        match self {
+            Dialect::DuckDb
+            | Dialect::SQLite
+            | Dialect::Postgres
+            | Dialect::MySql
+            | Dialect::MsSql => SupportLevel::Supported,
+            Dialect::Generic | Dialect::Ansi | Dialect::BigQuery | Dialect::Snowflake => {
+                SupportLevel::Unsupported
+            }
+            Dialect::Hive | Dialect::ClickHouse => SupportLevel::Nascent,
+        }
+    }
+
     #[deprecated(note = "Use `Dialect::Variants` instead")]
     pub fn names() -> &'static [&'static str] {
         Dialect::VARIANTS
     }
 }
 
-impl Default for Dialect {
-    fn default() -> Self {
-        Dialect::Generic
-    }
+pub enum SupportLevel {
+    Supported,
+    Unsupported,
+    Nascent,
 }
 
 #[derive(Debug)]
@@ -119,10 +132,6 @@ pub(super) trait DialectHandler: Any + Debug {
 
     fn ident_quote(&self) -> char {
         '"'
-    }
-
-    fn big_query_quoting(&self) -> bool {
-        false
     }
 
     fn column_exclude(&self) -> Option<ColumnExclude> {
@@ -162,47 +171,8 @@ pub(super) trait DialectHandler: Any + Debug {
         true
     }
 
-    fn regex_function(&self) -> Option<&'static str> {
-        Some("REGEXP")
-    }
-
-    fn translate_regex(
-        &self,
-        search: sql_ast::Expr,
-        target: sql_ast::Expr,
-    ) -> anyhow::Result<sql_ast::Expr> {
-        // When
-        // https://github.com/sqlparser-rs/sqlparser-rs/issues/863#issuecomment-1537272570
-        // is fixed, we can implement the infix for the other dialects. Until
-        // then, we still only have the `regex_function` implementations. (But
-        // I'd done the work to allow any Expr to be created before realizing
-        // sqlparser-rs didn't support custom operators, so may as well leave it
-        // in for when they do / we find another approach.)
-
-        let Some(regex_function) = self.regex_function() else {
-            // TODO: name the dialect, but not immediately obvious how to actually
-            // get the dialect string from a `DialectHandler` (though we could
-            // add it to each impl...)
-            //
-            // MSSQL doesn't support them, MySQL & SQLite have a different construction.
-            return Err(Error::new(
-                crate::Reason::Simple("regex functions are not supported by this dialect (or PRQL doesn't yet implement this dialect)".to_string())
-            ).into())
-        };
-
-        let args = [search, target]
-            .into_iter()
-            .map(FunctionArgExpr::Expr)
-            .map(FunctionArg::Unnamed)
-            .collect();
-
-        Ok(sql_ast::Expr::Function(Function {
-            name: ObjectName(vec![sql_ast::Ident::new(regex_function)]),
-            args,
-            over: None,
-            distinct: false,
-            special: false,
-        }))
+    fn supports_distinct_on(&self) -> bool {
+        false
     }
 }
 
@@ -219,8 +189,10 @@ impl DialectHandler for PostgresDialect {
     fn requires_quotes_intervals(&self) -> bool {
         true
     }
-    fn regex_function(&self) -> std::option::Option<&'static str> {
-        Some("REGEXP_LIKE")
+
+    fn supports_distinct_on(&self) -> bool {
+        // https://www.postgresql.org/docs/current/sql-select.html
+        true
     }
 }
 
@@ -240,22 +212,11 @@ impl DialectHandler for SQLiteDialect {
     fn stars_in_group(&self) -> bool {
         false
     }
-
-    fn regex_function(&self) -> Option<&'static str> {
-        // Sqlite has a different construction, using `REGEXP` as an operator.
-        // (`foo REGEXP 'bar').
-        //
-        // TODO: change the construction of the function to allow this.
-        None
-    }
 }
 
 impl DialectHandler for MsSqlDialect {
     fn use_top(&self) -> bool {
         true
-    }
-    fn regex_function(&self) -> Option<&'static str> {
-        None
     }
 
     // https://learn.microsoft.com/en-us/sql/t-sql/language-elements/set-operators-except-and-intersect-transact-sql?view=sql-server-ver16
@@ -277,14 +238,6 @@ impl DialectHandler for MySqlDialect {
         // https://dev.mysql.com/doc/refman/8.0/en/set-operations.html
         true
     }
-
-    fn regex_function(&self) -> Option<&'static str> {
-        // MySQL has a different construction, using `REGEXP` as an operator.
-        // (`foo REGEXP 'bar'). So
-        //
-        // TODO: change the construction of the function to allow this.
-        None
-    }
 }
 
 impl DialectHandler for ClickHouseDialect {
@@ -297,9 +250,6 @@ impl DialectHandler for BigQueryDialect {
     fn ident_quote(&self) -> char {
         '`'
     }
-    fn big_query_quoting(&self) -> bool {
-        true
-    }
     fn column_exclude(&self) -> Option<ColumnExclude> {
         // https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax#select_except
         Some(ColumnExclude::Except)
@@ -308,10 +258,6 @@ impl DialectHandler for BigQueryDialect {
     fn set_ops_distinct(&self) -> bool {
         // https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax#set_operators
         true
-    }
-
-    fn regex_function(&self) -> Option<&'static str> {
-        Some("REGEXP_CONTAINS")
     }
 }
 
@@ -338,8 +284,9 @@ impl DialectHandler for DuckDbDialect {
         false
     }
 
-    fn regex_function(&self) -> Option<&'static str> {
-        Some("REGEXP_MATCHES")
+    fn supports_distinct_on(&self) -> bool {
+        // https://duckdb.org/docs/sql/query_syntax/select.html#distinct-on-clause
+        true
     }
 }
 

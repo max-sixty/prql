@@ -1,14 +1,31 @@
 # PRQL Changelog
 
-## 0.8.2 — [unreleased]
+## 0.9.0 — [unreleased]
+
+_The following unreleased features are only available in the `main` branch. They
+will become the public version at the next release._
 
 **Features**:
+
+- We've made one large breaking change — Lists are now Tuples, and represented
+  with braces `{}` rather than brackets `[]`.
+
+  We now have Arrays, which use the `[]` syntax.
+
+  We've made this change to incorporate arrays without having syntax that's the
+  opposite of almost every major language — specifically using `{}` for an array
+  type and `[]` for a tuple type. (Though we recognize that `{}` for tuples is
+  also rare (Hi, Erlang!), but didn't want to further load parentheses with
+  meaning)
+
+  As part of this, we've also formalized tuples as containing both individual
+  items (`select {foo, baz}`), and assignments (`select {foo=bar, baz=fuz}`).
 
 - Add a `~=` regex search operator (@max-sixty, #2458). An example:
 
   ```prql no-eval
   from tracks
-  filter (name ~= "Love")
+  filter {name ~= "Love"}
   ```
 
   ...compiles to;
@@ -22,7 +39,42 @@
     REGEXP(name, 'Love')
   ```
 
-  ...though the exact form differs by dialect.
+  ...though the exact form differs by dialect; see the
+  [Regex docs](https://prql-lang.org/book/language-features/regex.html) for more
+  details.
+
+- We've changed our function declaration syntax to match other declarations.
+  Functions were one of the first language constructs in PRQL, and since then
+  we've added normal declarations; and there's no compelling reason to have
+  functions be different.
+
+  ```prql no-eval
+  let add = a b -> a + b
+  ```
+
+  Previously, this was:
+
+  ```prql no-eval
+  func add a b -> a + b
+  ```
+
+- Modules allow importing declarations from other files: See
+  https://github.com/PRQL/prql/blob/main/web/book/src/internals/modules.md
+
+- "Relation Literals", which create inline relations / tables from data in the
+  query:
+
+  ' # TODO: add `from`?
+
+  ```prql no-eval
+  [{a=5, b=false}, {a=6, b=true}]
+  filter b == true
+  select a
+  ```
+
+  This example demonstrates both the new tuple syntax (`{}`) and arrays `[]`.
+
+  (@aljazerzen, #2605)
 
 **Fixes**:
 
@@ -33,6 +85,18 @@
 **Integrations**:
 
 **Internal changes**:
+
+- Annotations in PRQL. These have limited support but are currently used to
+  specify binding strengths. They're modeled after Rust's annotations, but with
+  `@` syntax, more similar to traditional decorators.
+
+  ```prql no-eval
+  @{binding_strength=11}
+  let mod = l r -> s"{l} % {r}"
+  ```
+
+- Remove BigQuery's special handling of quoted identifiers, now that our module
+  system handles its semantics (@max-sixty, #2609).
 
 **New Contributors**:
 
@@ -238,7 +302,7 @@ This release has 108 commits from 11 contributors. Selected changes:
 
   This pass-through feature existed for integration with dbt.
 
-  we're again considering how to best integrate with dbt, and this change is
+  We're again considering how to best integrate with dbt, and this change is
   based on the idea that the jinja macro should run before the PRQL compiler.
 
   If you're interested in dbt integration, subscribe or 👍 to
@@ -520,10 +584,10 @@ below in this release).
 
   ```prql no-eval
   from numbers
-  select [
+  select {
       small = 1.000_000_1,
       big = 5_000_000,
-  ]
+  }
   ```
 
 - The SQL output contains a comment with the PRQL compiler version (@aljazerzen,

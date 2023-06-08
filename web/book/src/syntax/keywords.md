@@ -1,11 +1,14 @@
 # Keywords
 
-At the moment, PRQL uses only four keywords:
+PRQL uses a few terms as keywords:
 
-- `prql`
 - `let`
-- `func`
+- `into`
 - `case`
+- `prql`
+- `type`
+- `module`
+- `internal`
 
 To use these names as columns or relations, use backticks: `` `case` ``.
 
@@ -14,6 +17,6 @@ within std namespace:
 
 ```prql
 std.from my_table
-std.select [from = my_table.a, take = my_table.b]
+std.select {from = my_table.a, take = my_table.b}
 std.take 3
 ```

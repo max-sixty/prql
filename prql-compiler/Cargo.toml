@@ -12,13 +12,13 @@ metadata.msrv = "1.65.0"
 
 [dependencies]
 anyhow = {version = "1.0.57", features = ["backtrace"]}
-ariadne = "0.2.0"
+ariadne = "0.3.0"
 csv = "1.2.0"
-enum-as-inner = "0.5.0"
+enum-as-inner = "0.6.0"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
 log = "0.4.17"
-once_cell = "1.17.0"
+once_cell = "1.18.0"
 regex = "1.8.1"
 semver = {version = "1.0.14", features = ["serde"]}
 # We could put `serde` behind a feature if needed, particularly `yaml`, which
@@ -27,7 +27,7 @@ serde = {version = "1.0.137", features = ["derive"]}
 serde_json = "1.0.81"
 serde_yaml = "0.9"
 sqlformat = "0.2.0"
-sqlparser = {version = "0.33.0", features = ["serde"]}
+sqlparser = {version = "0.34.0", features = ["serde"]}
 strum = {version = "0.24.0", features = ["std", "derive"]}
 strum_macros = "0.24.0"
 
@@ -46,9 +46,10 @@ insta = {version = "1.29", features = ["colors", "glob", "yaml"]}
 # For integration tests
 [target.'cfg(not(target_family="wasm"))'.dev-dependencies]
 chrono = {version = "0.4", features = [], default-features = false}
-criterion = "0.4.0"
+criterion = "0.5.1"
 csv = "1.2"
-mysql = "23"
+duckdb = {version = "0.7.0", features = ["bundled", "chrono"]}
+mysql = "24"
 pg_bigdecimal = "0.1"
 postgres = "0.19"
 pretty_assertions = "1.3.0"
@@ -56,11 +57,6 @@ rusqlite = {version = "0.29.0", features = ["bundled", "csvtab"]}
 tiberius = {version = "0.12", features = ["sql-browser-tokio", "bigdecimal", "time"]}
 tokio = {version = "1", features = ["full"]}
 tokio-util = {version = "0.7", features = ["compat"]}
-
-# Re-enable on windows when duckdb supports it
-# https://github.com/wangfenjin/duckdb-rs/issues/62
-[target.'cfg(not(any(target_family = "windows", target_family="wasm")))'.dev-dependencies]
-duckdb = {version = "0.7.0", features = ["bundled", "chrono"]}
 
 [[bench]]
 harness = false
@@ -111,6 +107,12 @@ search = 'prefix-key: [\d.]+'
 [[package.metadata.release.pre-release-replacements]]
 exactly = 1
 file = "../.github/actions/build-prql-python/action.yaml"
+replace = 'prefix-key: {{version}}'
+search = 'prefix-key: [\d.]+'
+
+[[package.metadata.release.pre-release-replacements]]
+exactly = 1
+file = "../.github/actions/build-prqlc/action.yaml"
 replace = 'prefix-key: {{version}}'
 search = 'prefix-key: [\d.]+'
 

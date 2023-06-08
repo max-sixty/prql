@@ -5,7 +5,7 @@ designed for DuckDB:
 
 ```prql
 from (read_parquet 'artists.parquet')
-join (read_csv 'albums.csv') [==track_id]
+join (read_csv 'albums.csv') (==track_id)
 ```
 
 ```admonish note
@@ -16,3 +16,7 @@ please log an issue and it's a fairly easy addition.
 ```admonish info
 We may be able to reduce the boilerplate `WITH table_x AS SELECT * FROM...` in future versions.
 ```
+
+## See also
+
+- [Relation literals](../relation-literals.md)

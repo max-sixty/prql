@@ -27,7 +27,7 @@
 - [Syntax](./syntax/README.md)
 
   - [Pipes](./syntax/pipes.md)
-  - [Lists](./syntax/lists.md)
+  - [Tuples](./syntax/tuples.md)
   - [Expressions & Operators](./syntax/expressions-and-operators.md)
   - [Inner Transforms](./syntax/inner-transforms.md)
   - [Comments](./syntax/comments.md)
@@ -43,17 +43,24 @@
     <!-- `DATE_TRUNC(foo_date, YEAR)` -> `foo_date.year`? Or -> `foo_date | as year`? Or `foo_date | to year`? -->
   - [Dates & times](./language-features/dates-and-times.md)
   - [Distinct](./language-features/distinct.md)
+  - [Relation literals](./language-features/relation-literals.md)
   - [Null handling](./language-features/null.md)
   - [Ranges](./language-features/ranges.md)
   - [Regex](./language-features/regex.md)
   - [Standard library](./language-features/standard-library/README.md)
-    - [From_text](./language-features/standard-library/from_text.md)
     - [Loop](./language-features/standard-library/loop.md)
     - [Reading files](./language-features/standard-library/reading-files.md)
   - [Strings](./language-features/strings.md)
   - [S-strings](./language-features/s-strings.md)
   - [F-strings](./language-features/f-strings.md)
   - [Target & Version](./language-features/target.md)
+
+- [Compiler](./compiler/README.md)
+
+  - [Reference implementation](./compiler/rust/README.md)
+    - [CLI](./compiler/rust/cli.md)
+  - [Compiler features](./compiler/compiler-features/README.md)
+    - [Target & Version](./compiler/compiler-features/target.md)
 
 - [Bindings](./bindings/README.md)
 
@@ -67,7 +74,7 @@
 
 - [Integrations](./integrations/README.md)
 
-  - [dbt](./integrations/dbt.md)
+  - [CLI](./integrations/cli.md)
   - [Jupyter](./integrations/jupyter.md)
   - [DuckDB](./integrations/duckdb.md)
   - [Prefect](./integrations/prefect.md)
@@ -84,8 +91,6 @@
 - [Contributing to PRQL](./contributing/README.md)
 
   - [Development](./contributing/development.md)
-  - [Developing with Docker](./contributing/developing-with-docker.md)
-  - [Developing with Dev Containers](./contributing/developing-with-dev-containers.md)
 
 - [Internals](./internals/README.md)
 
