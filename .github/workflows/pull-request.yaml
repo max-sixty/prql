@@ -527,6 +527,7 @@ jobs:
       - rules
       - check-ok-to-merge
       - nightly
+
     if:
       # We care that it's on a schedule as well as it running on nightly — we
       # don't want to trigger just on a `pr-nightly` label
