@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
 
     # Don't attempt to publish if on a fork, including a PR.
-    if: !github.event.pull_request.head.repo.fork && false
+    # if: ${{ !github.event.pull_request.head.repo.fork }}
+    if: false
 
     permissions:
       pages: write
