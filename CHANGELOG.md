@@ -1,52 +1,287 @@
 # PRQL Changelog
 
-## 0.9.0 — [unreleased]
+## [unreleased]
 
-_The following unreleased features are only available in the `main` branch. They
-will become the public version at the next release._
+**Language**:
+
+- _Breaking:_ Case syntax now uses brackets `[]` rather than braces `{}`. To
+  convert previous PRQL queries to this new syntax simply change `case { ... }`
+  to `case [ ... ]`. (@AaronMoat, #3517)
 
 **Features**:
 
-- We've made one large breaking change — Lists are now Tuples, and represented
-  with braces `{}` rather than brackets `[]`.
+- _Breaking_: The `std.sql.read_csv` function is now compiled to `read_csv` by
+  default. Please set the target `sql.duckdb` to use the DuckDB's
+  `read_csv_auto` function as previously. (@eitsupi, #3599)
+- Add `std.prql_version` function to return PRQL version (@hulxv, #3533)
+- Add support for hex escape sequences in strings. Example `"Hello \x51"`.
+  (@vanillajonathan, #3568)
+- Add support for long Unicode escape sequences. Example `"Hello \u{01F422}"`.
+  (@vanillajonathan, #3569)
+- Add support for binary numerical notation. Example
+  `filter status == 0b1111000011110000`. (@vanillajonathan, #3661)
+- Add support for hexadecimal numerical notation. Example
+  `filter status == 0xff`. (@vanillajonathan, #3654)
 
-  We now have Arrays, which use the `[]` syntax.
+**Fixes**:
 
-  We've made this change to incorporate arrays without having syntax that's the
-  opposite of almost every major language — specifically using `{}` for an array
-  type and `[]` for a tuple type. (Though we recognize that `{}` for tuples is
-  also rare (Hi, Erlang!), but didn't want to further load parentheses with
-  meaning)
+**Documentation**:
+
+**Web**:
+
+- Allow cmd-/ (Mac) or ctrl-/ (Windows) to toggle comments in the playground
+  editor (@AaronMoat, #3522)
+
+- Limit maximum height of the playground editor's error panel to avoid taking
+  over whole screen (@AaronMoat, #3524)
+
+**Integrations**:
+
+- Bump `prqlc`'s MSRV to 1.70.0 (@eitsupi, #3521)
+- [Pygments](https://pygments.org/), a syntax highlighting library now has
+  syntax highlighting for PRQL. (@vanillajonathan, #3564)
+- [chroma](https://github.com/alecthomas/chroma), a syntax highlighting library
+  written in Go and used by the static website generator
+  [Hugo](https://gohugo.io/). (@vanillajonathan, #3597)
+- [scc](https://github.com/boyter/scc), a source lines of code counter now has
+  support for `.prql` files. (@vanillajonathan)
+- [gcloc](https://github.com/JoaoDanielRufino/gcloc) a source lines of code
+  counter now has support for `.prql` files. (@vanillajonathan)
+- [cloc](https://github.com/AlDanial/cloc) a source lines of code counter now
+  has support for `.prql` files. (@AlDanial)
+- [gocloc](https://github.com/hhatto/gocloc) a source lines of code counter now
+  has support for `.prql` files. (@vanillajonathan)
+
+**Internal changes**:
+
+**New Contributors**:
+
+- @hulxv, with #3533
+
+## 0.9.5 — 2023-09-16
+
+0.9.5 adds a line-wrapping character, fixes a few bugs, and improves our CI. The
+release has 77 commits from 8 contributors. Selected changes are below.
+
+Look out for some conference talks coming up over the next few weeks, including
+[QCon SF on Oct 2](https://qconsf.com/presentation/oct2023/prql-simple-powerful-pipelined-sql-replacement)
+and
+[date2day on Oct 12](https://www.data2day.de/veranstaltung-21353-0-prql-a-modern-language-for-data-transformation.html).
+
+**Language**:
+
+- A new line-wrapping character, for lines that are long and we want to break up
+  into multiple physical lines. This is slightly different from from many
+  languages — it's on the subsequent line:
+
+  ```prql no-eval
+  from artists
+  select is_europe =
+  \ country == "DE"
+  \ || country == "FR"
+  \ || country == "ES"
+  ```
+
+  This allows for easily commenting out physical lines while maintaining a
+  correct logical line; for example:
+
+  ```diff
+  from artists
+  select is_europe =
+  \ country == "DE"
+  \ || country == "FR"
+  \ || country == "FR"
+  -\ || country == "ES"
+  +#\ || country == "ES"
+  ```
+
+  (@max-sixty, #3408)
+
+**Fixes**:
+
+- Fix stack overflow on very long queries in Windows debug builds (@max-sixty,
+  #2908)
+
+- Fix panic when unresolved lineage appears in group or window (@davidot, #3266)
+
+- Fix a corner-case in handling precedence, and remove unneeded parentheses in
+  some outputs (@max-sixty, #3472)
+
+**Web**:
+
+- Compiler panics are now printed to the console (@max-sixty, #3446)
+
+**Integrations**:
+
+- [Ace](https://ace.c9.io/), the JavaScript code editor now has syntax
+  highlighting for PRQL. (@vanillajonathan, #3493)
+
+**Internal changes**:
+
+- Simplify & speed up lexer (@max-sixty, #3426, #3418)
+
+**New Contributors**:
+
+- @davidot, with #3450
+
+## 0.9.4 — 2023-08-24
+
+0.9.4 is a small release with some improvements and bug fixes in the compiler
+and `prqlc`. And, the documentation and CI are continually being improved.
+
+This release has 110 commits from 9 contributors. Selected changes:
+
+**Features**:
+
+- Strings can be delimited with any odd number of quote characters. The logic
+  for lexing quotes is now simpler and slightly faster. Escapes in
+  single-quote-delimited strings escape single-quotes rather than double-quotes.
+  (@max-sixty, #3274)
+
+**Fixes**:
+
+- S-strings within double braces now parse correctly (@max-sixty, #3265)
+
+**Documentation**:
+
+- New docs for strings (@max-sixty, #3281)
+
+**Web**:
+
+- Improve syntax highlighting for numbers in the book & website (@max-sixty,
+  #3261)
+- Add ClickHouse integration to docs (@max-sixty, #3251)
+
+**Integrations**:
+
+- `prqlc` no longer displays a prompt when piping a query into its stdin
+  (@max-sixty, #3248).
+- Add a minimal example for use `prql-lib` with Zig (@vanillajonathan, #3372)
+
+**Internal changes**:
+
+- Overhaul our CI to run a cohesive set of tests depending on the specific
+  changes in the PR, and elide all others. This cuts CI latency to less than
+  three minutes for most changes, and enables GitHub's auto-merge to wait for
+  all relevant tests. It also reduces the CI time on merging to main, by moving
+  some tests to only run on specific path changes or on our nightly run.
+
+  We now have one label we can add to PRs to run more tests — `pr-nightly`.
+  (@max-sixty, #3317 & others).
+
+- Auto-merge PRs for backports or pre-commit updates (@max-sixty, #3246)
+- Add a workflow to create an issue when the scheduled nightly workflow fails
+  (@max-sixty, #3304)
+
+**New Contributors**:
+
+- @FinnRG, with #3292
+- @sitiom, with #3353
+
+## 0.9.3 — 2023-08-02
+
+0.9.3 is a small release, with mostly documentation, internal, and CI changes.
+
+This release has 85 commits from 10 contributors.
+
+We'd like to welcome @not-my-profile as someone who has helped with lots of
+internal refactoring in the past couple of weeks.
+
+**New Contributors**:
+
+- @vthriller, with #3171
+- @postmeback, with #3216
+
+## 0.9.2 — 2023-07-25
+
+0.9.2 is a hotfix release to fix an issue in the 0.9.0 & 0.9.1 release
+pipelines.
+
+## 0.9.1 — 2023-07-25
+
+0.9.1 is a hotfix release to fix an issue in the 0.9.0 release pipeline.
+
+## 0.9.0 — 2023-07-24
+
+0.9.0 is probably PRQL's biggest ever release. We have dialect-specific
+standard-libraries, a regex operator, an initial implementation of multiple-file
+projects & modules, lots of bug fixes, and many many internal changes.
+
+We've made a few backward incompatible syntax changes. Most queries will work
+with a simple find/replace; see below for details.
+
+The release has 421 commits from 12 contributors.
+
+A small selection of the changes:
+
+**Language**:
+
+- The major breaking change is a new syntax for lists, which have been renamed
+  to _tuples_, and are now represented with braces `{}` rather than brackets
+  `[]`.
+
+  To convert previous PRQL queries to this new syntax simply change `[ ... ]` to
+  `{ ... }`.
+
+  We made the syntax change to incorporate arrays. Almost every major language
+  uses `[]` for arrays. We are adopting that convention — arrays use `[]`,
+  tuples will use `{}`. (Though we recognize that `{}` for tuples is also rare
+  (Hi, Erlang!), but didn't want to further load parentheses with meaning.)
+
+  Arrays are conceptually similar to columns — their elements have a single
+  type. Array syntax can't contain assignments.
 
   As part of this, we've also formalized tuples as containing both individual
   items (`select {foo, baz}`), and assignments (`select {foo=bar, baz=fuz}`).
 
-- Add a `~=` regex search operator (@max-sixty, #2458). An example:
+- Some significant changes regarding SQL dialects:
 
-  ```prql no-eval
-  from tracks
-  filter {name ~= "Love"}
-  ```
+  - Operators and functions can be defined on per-dialect basis. (@aljazerzen,
+    #2681)
+  - _Breaking_: The `sql.duckdb` target supports DuckDB 0.8 (@eitsupi, #2810).
+  - _Breaking_: The `sql.hive` target is removed (@eitsupi, #2837).
 
-  ...compiles to;
+- New arithmetic operators. These compile to different function or operator
+  depending on the target.
 
-  ```sql
-  SELECT
-    *
-  FROM
-    tracks
-  WHERE
-    REGEXP(name, 'Love')
-  ```
+  - _Breaking_: Operator `/` now always performs floating division (@aljazerzen,
+    #2684). See the
+    [Division docs](https://prql-lang.org/book/reference/syntax/operators.html#division-and-integer-division)
+    for details.
 
-  ...though the exact form differs by dialect; see the
-  [Regex docs](https://prql-lang.org/book/language-features/regex.html) for more
-  details.
+  - Truncated integer division operator `//` (@aljazerzen, #2684). See the
+    [Division docs](https://prql-lang.org/book/reference/syntax/operators.html#division-and-integer-division)
+    for details.
 
-- We've changed our function declaration syntax to match other declarations.
-  Functions were one of the first language constructs in PRQL, and since then
-  we've added normal declarations; and there's no compelling reason to have
-  functions be different.
+  - Regex search operator `~=` (@max-sixty, #2458). An example:
+
+    ```prql no-eval
+    from tracks
+    filter (name ~= "Love")
+    ```
+
+    ...compiles to;
+
+    ```sql
+    SELECT
+      *
+    FROM
+      tracks
+    WHERE
+      REGEXP(name, 'Love')
+    ```
+
+    ...though the exact form differs by dialect; see the
+    [Regex docs](https://prql-lang.org/book/reference/syntax/operators.html#regex)
+    for more details.
+
+- New aggregation functions: `every`, `any`, `average`, and `concat_array`.
+  _Breaking:_ Remove `avg` in favor of `average`.
+
+- _Breaking:_ We've changed our function declaration syntax to match other
+  declarations. Functions were one of the first language constructs in PRQL, and
+  since then we've added normal declarations there's no compelling reason for
+  functions to be different.
 
   ```prql no-eval
   let add = a b -> a + b
@@ -58,26 +293,38 @@ will become the public version at the next release._
   func add a b -> a + b
   ```
 
-- Modules allow importing declarations from other files: See TODO: insert link
+- Experimental modules, which allow importing declarations from other files.
+  Docs are forthcoming.
 
-- "Relation Literals", which create inline relations / tables from data in the
-  query:
-
-  ' # TODO: add `from`?
+- Relation literals create a relation (a "table") as an _array_ of _tuples_.
+  This example demonstrates the new syntax for arrays `[]` and tuples `{}`.
+  (@aljazerzen, #2605)
 
   ```prql no-eval
-  [{a=5, b=false}, {a=6, b=true}]
+  from [{a=5, b=false}, {a=6, b=true}]
   filter b == true
   select a
   ```
 
-  This example demonstrates both the new tuple syntax (`{}`) and arrays `[]`.
+- `this` can be used to refer to the current pipeline, for situations where
+  plain column name would be ambiguous:
 
-  (@aljazerzen, #2605)
+  ```prql no-eval
+  from x
+  derive sum = my_column
+  select this.sum   # does not conflict with `std.sum`
+  ```
 
-- We've changed how we handle colors. We now use the
-  `[anstream](https://github.com/rust-cli/anstyle)` library in `prqlc` &
-  `prql-compiler`.
+  Within a `join` transform, there is also a reference to the right relation:
+  `that`.
+
+- _Breaking:_ functions `count`, `rank` and `row_number` now require an argument
+  of the array to operate on. In most cases you can directly replace `count`
+  with `count this`. The `non_null` argument of `count` has been removed.
+
+**Features**:
+
+- We've changed how we handle colors.
 
   `Options::color` is deprecated and has no effect. Code which consumes
   `prql_compiler::compile` should instead accept the output with colors and use
@@ -86,6 +333,9 @@ will become the public version at the next release._
   standard environment variable such as `CLI_COLOR=0` is set or when it detects
   `stderr` is not a TTY.
 
+  We now use the [`anstream`](https://github.com/rust-cli/anstyle) library in
+  `prqlc` & `prql-compiler`.
+
   (@max-sixty, #2773)
 
 - `prqlc` can now show backtraces when the standard backtrace env var
@@ -93,17 +343,18 @@ will become the public version at the next release._
 
 **Fixes**:
 
-**Documentation**:
-
-**Web**:
+- Numbers expressed with scientific notation — `1e9` — are now handled correctly
+  by the compiler (@max-sixty, #2865).
 
 **Integrations**:
+
+- prql-python now provides type hints (@philpep, #2912)
 
 **Internal changes**:
 
 - Annotations in PRQL. These have limited support but are currently used to
   specify binding strengths. They're modeled after Rust's annotations, but with
-  `@` syntax, more similar to traditional decorators.
+  `@` syntax, more similar to traditional decorators. (#2729)
 
   ```prql no-eval
   @{binding_strength=11}
@@ -113,7 +364,14 @@ will become the public version at the next release._
 - Remove BigQuery's special handling of quoted identifiers, now that our module
   system handles its semantics (@max-sixty, #2609).
 
+- ClickHouse is tested in CI (@eitsupi, #2815).
+
 **New Contributors**:
+
+- @maxmcd, with #2533
+- @khoa165, with #2876
+- @philpep, with #2912
+- @not-my-profile, with #2971
 
 ## 0.8.1 — 2023-04-29
 
@@ -246,8 +504,8 @@ This release has 54 commits from 6 contributors. Selected changes:
 **Documentation**:
 
 - Add a policy for which bindings are supported / unsupported / nascent. See
-  <https://prql-lang.org/book/bindings/index.html> for more details (@max-sixty,
-  #2062) (@max-sixty, #2062)
+  <https://prql-lang.org/book/project/bindings/index.html> for more details
+  (@max-sixty, #2062) (@max-sixty, #2062)
 
 **Integrations**:
 
@@ -539,10 +797,11 @@ below in this release).
 
 - Defining a temporary table is now expressed as `let` rather than `table`
   (@aljazerzen, #1315). See the
-  [tables docs](https://prql-lang.org/book/queries/variables.html) for details.
+  [tables docs](https://prql-lang.org/book/reference/declarations/variables.html)
+  for details.
 
 - _Experimental:_ The
-  [`case`](https://prql-lang.org/book/language-features/case.html) function sets
+  [`case`](https://prql-lang.org/book/reference/syntax/case.html) function sets
   a variable to a value based on one of several expressions (@aljazerzen,
   #1278).
 
@@ -571,7 +830,7 @@ below in this release).
   ```
 
   Check out the
-  [`case` docs](https://prql-lang.org/book/language-features/case.html) for more
+  [`case` docs](https://prql-lang.org/book/reference/syntax/case.html) for more
   details.
 
 - _Experimental:_ Columns can be excluded by name with `select` (@aljazerzen,
@@ -591,8 +850,8 @@ below in this release).
   ```
 
   Check out the
-  [`append` docs](https://prql-lang.org/book/transforms/append.html) for more
-  details.
+  [`append` docs](https://prql-lang.org/book/reference/stdlib/transforms/append.html)
+  for more details.
 
 - Numbers can contain underscores, which can make reading long numbers easier
   (@max-sixty, #1467):
@@ -636,7 +895,7 @@ below in this release).
 
 - The crate's external API has changed to allow for compiling to intermediate
   representation. This also affects bindings. See
-  [`prql_compiler` docs](https://docs.rs/prql-compiler/latest/prql_compiler/)
+  [`prql-compiler` docs](https://docs.rs/prql-compiler/latest/prql_compiler/)
   for more details.
 
 **Fixes**:
@@ -651,7 +910,7 @@ below in this release).
 improvements]
 
 - Add docs on aliases in
-  [Select](https://prql-lang.org/book/transforms/select.html)
+  [Select](https://prql-lang.org/book/reference/stdlib/transforms/select.html)
 - Add JS template literal and multiline example (@BCsabaEngine, #1432)
 - JS template literal and multiline example (@BCsabaEngine, #1432)
 - Improve prql-compiler docs & examples (@aljazerzen, #1515)
@@ -916,9 +1175,7 @@ We also have new features in the
 
 **Documentation**:
 
-- Add docs on
-  [Architecture](https://prql-lang.org/book/internals/compiler-architecture.html)
-  (@aljazerzen, #904)
+- Add docs on Architecture (@aljazerzen, #904)
 - Add Changelog (@max-sixty, #890 #891)
 
 **Internal changes**:
@@ -1086,7 +1343,7 @@ I especially want to give [Aljaž Mur Eržen](https://github.com/aljazerzen)
 (@aljazerzen) the credit he deserves, who has contributed the majority of the
 difficult work of building out the compiler. Much credit also goes to
 [Charlie Sanders](https://github.com/charlie-sanders) (@charlie-sanders), one of
-PRQL's earliest supporters and the author of PyPrql, and
+PRQL's earliest supporters and the author of pyprql, and
 [Ryan Patterson-Cross](https://github.com/rbpatt2019) (@rbpatt2019), who built
 the Jupyter integration among other Python contributions.
 

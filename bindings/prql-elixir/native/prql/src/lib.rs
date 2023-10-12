@@ -1,3 +1,5 @@
+// Seems to break tarpaulin
+#![cfg(not(tarpaulin))]
 // See Readme for more information on Mac compiling
 #![cfg(not(target_os = "macos"))]
 // These bindings aren't relevant on wasm
@@ -18,7 +20,6 @@ mod atoms {
       bigquery,
       clickhouse,
       generic,
-      hive,
       mssql,
       mysql,
       postgres,
@@ -53,8 +54,6 @@ fn target_from_atom(a: Atom) -> prql_compiler::Target {
         ClickHouse
     } else if a == atoms::generic() {
         Generic
-    } else if a == atoms::hive() {
-        Hive
     } else if a == atoms::mssql() {
         MsSql
     } else if a == atoms::mysql() {
@@ -101,7 +100,7 @@ pub struct CompileOptions {
     /// GitHub issue.
     ///
     /// If `None` is used, the `target` argument from the query header is used.
-    /// If it does not exist, [Dialect::Generic] is used.
+    /// If it does not exist, [`prql_compiler::sql::Dialect::Generic`] is used.
     pub target: Atom,
 
     /// Emits the compiler signature as a comment after generated SQL

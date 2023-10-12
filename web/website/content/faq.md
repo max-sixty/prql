@@ -48,7 +48,7 @@ Yes, probably. We're standing on the shoulders of giants:
   writes insightful pieces, and it's worth sponsoring him for his updates.
 - Julia's [DataPipes.jl](https://gitlab.com/aplavin/DataPipes.jl) &
   [Chain.jl](https://github.com/jkrumbiegel/Chain.jl) demonstrate how effective
-  point-free pipelines can be, and how line-breaks can work as pipes.
+  point-free pipelines can be, and how line breaks can work as pipes.
 - [OCaml](https://ocaml.org/)'s elegant and simple syntax serves as inspiration.
 
 And there are many projects similar to PRQL:
@@ -118,9 +118,9 @@ PRQL compiles to SQL, so it's compatible with any database that accepts SQL.
 
 A query's dialect can be explicitly specified, allowing for dialect-specific SQL
 to be generated. See the
-[Dialect docs](https://prql-lang.org/book/language-features/target.html) for
-more info; note that there is currently very limited implementation of this, and
-most dialects' implementation are identical to a generic implementation.
+[Dialect docs](https://prql-lang.org/book/project/target.html) for more info;
+note that there is currently very limited implementation of this, and most
+dialects' implementation are identical to a generic implementation.
 
 {{</ faq >}}
 
@@ -194,7 +194,7 @@ PRQL:
 > etc.
 
 For more detail, check out the docs in the
-[PRQL Book](https://prql-lang.org/book/transforms/aggregate.html).
+[PRQL Book](https://prql-lang.org/book/reference/stdlib/transforms/aggregate.html).
 
 {{</ faq >}}
 

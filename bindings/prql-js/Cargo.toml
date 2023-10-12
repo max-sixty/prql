@@ -4,14 +4,10 @@ name = "prql-js"
 publish = false
 
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-
-# Unsupported by `wasm-pack` (which seems kinda unmaintained now...)
-# license.workspace = true
-# repository.workspace = true
-license = "Apache-2.0"
-repository = "https://github.com/PRQL/prql"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -21,23 +17,24 @@ test = false
 [features]
 default = ["console_error_panic_hook"]
 
-[dependencies]
-prql-compiler = {path = "../../prql-compiler", default-features = false}
-# This was preventing the playground from working. It's possibly
-# https://github.com/rustwasm/wasm-bindgen/issues/3276
-# If the playground works with a later version, we can unpin this. It's likely
-# related to wasm-pack. So https://github.com/PRQL/prql/issues/1836 would likely
-# solve it, along with simplifying the build process.
-wasm-bindgen = "=0.2.83"
+[target.'cfg(target_family="wasm")'.dependencies]
+prql-compiler = {path = "../../crates/prql-compiler", default-features = false}
+wasm-bindgen = "0.2.87"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
-# logging them with `console.error`. This is great for development, but requires
-# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
-# code size when deploying.
+# logging them with `console.error`. While the docs state that "This is great
+# for development, but requires all the `std::fmt` and `std::panicking`
+# infrastructure, so isn't great for code size when deploying.", on testing with
+# `--no-default-features`,
+# `prql/target/wasm32-unknown-unknown/release/prql_js.wasm` is 7.416MB vs
+# 7.408MB. Maybe because we're already including lots of that with other library
+# features? Even running `wasm-opt prql_js.wasm` makes similarly sized files of
+# 5.7M. Feel free to try removing this as part of reducing code size (would be
+# good to have a much smaller code size...).
 console_error_panic_hook = {version = "0.1.7", optional = true}
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3.30"
+[target.'cfg(target_family="wasm")'.dev-dependencies]
+wasm-bindgen-test = "0.3.37"
 
 [package.metadata.cargo-udeps.ignore]
 development = ["wasm-bindgen-test"]
@@ -57,7 +54,7 @@ exactly = 2
 file = "package-lock.json"
 replace = '$1"{{version}}"'
 search = '''
-(".*/prql-js": \{
+(\s+"prql-js",
 \s+"version": )"[\d\.]+"'''
 
 [[package.metadata.release.pre-release-replacements]]

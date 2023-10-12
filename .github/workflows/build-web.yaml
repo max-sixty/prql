@@ -1,20 +1,14 @@
 name: build-web
 
 on:
-  pull_request:
-    paths:
-      - "web/**"
-      - ".github/workflows/build-web.yaml"
-      - "**.md"
   workflow_call:
+  workflow_dispatch:
 
 env:
+  CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: 1
   RUSTFLAGS: "-C debuginfo=0"
-
-concurrency:
-  # See notes in `pull-request.yaml`
-  group: ${{ github.workflow }}-${{ github.ref }}-web
-  cancel-in-progress: true
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   build-web:
@@ -27,7 +21,7 @@ jobs:
 
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Website requires hugo
       - name: Setup hugo
@@ -52,11 +46,16 @@ jobs:
         with:
           node-version: "18.x"
           registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+          cache-dependency-path: "**/package-lock.json"
+
+      - run: ./.github/set_version.sh
 
       - name: 💰 Cache
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: 0.8.1
+          prefix-key: ${{ env.version }}
+          shared-key: web
           save-if:
             ${{ github.ref == 'refs/heads/web' || github.ref ==
             'refs/heads/main' }}
@@ -65,9 +64,9 @@ jobs:
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 🕷️ Build website
+      - name: 🕷️ Build web
         run: task build-web
 
-      - uses: actions/upload-pages-artifact@v1.0.8
+      - uses: actions/upload-pages-artifact@v2.0.0
         with:
           path: web/website/public/

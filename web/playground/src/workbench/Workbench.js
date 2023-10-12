@@ -40,13 +40,20 @@ class Workbench extends React.Component {
   componentDidMount() {
     this.props.setCallables({ loadFile: (f, c) => this.loadFile(f, c) });
 
-    this.duckdb = duckdb.init();
+    if (!this.duckdb) {
+      this.duckdb = duckdb.init();
+    }
   }
 
   beforeEditorMount(monaco) {
     this.monaco = monaco;
     monaco.editor.defineTheme("blackboard", monacoTheme);
     monaco.languages.register({ id: "prql", extensions: ["prql"] });
+    monaco.languages.setLanguageConfiguration("prql", {
+      comments: {
+        lineComment: "#",
+      },
+    });
     monaco.languages.setMonarchTokensProvider("prql", prqlSyntax);
   }
 
@@ -79,7 +86,7 @@ class Workbench extends React.Component {
       this.monaco.editor.setModelMarkers(
         this.editor.getModel(),
         "prql",
-        monacoErrors
+        monacoErrors,
       );
       return;
     }

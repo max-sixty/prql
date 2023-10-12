@@ -1,25 +1,15 @@
 name: test-dotnet
 
 on:
-  pull_request:
-    paths:
-      - "bindings/prql-dotnet/**"
-      - "bindings/prql-lib/**"
-      - ".github/workflows/test-dotnet.yaml"
   workflow_call:
   workflow_dispatch:
-
-concurrency:
-  # See notes in `pull-request.yaml`
-  group: ${{ github.workflow }}-${{ github.ref }}-dotnet
-  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 🏗 Build prql-lib
         run: cargo build
         working-directory: bindings/prql-lib

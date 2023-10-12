@@ -43,7 +43,7 @@ run PRQL without needing a Rust toolchain.
 
 We currently don't enable compilation for Mac. This is possible to enable, but
 causes some issues with cargo's compilation cache. Briefly: it requires
-`RUST_FLAGS` to be set, and because of
+`RUSTFLAGS` to be set, and because of
 <https://github.com/rust-lang/cargo/issues/8716> &
 <https://github.com/rust-lang/cargo/issues/8899>, any compilation of a different
 target will bust the cache.
@@ -52,7 +52,7 @@ The possible future workarounds include:
 
 - Passing `--target=aarch64-apple-darwin` to every cargo call, which is
   inconvenient and can be difficult in some situations; e.g. Rust Analyzer. This
-  disables passing `RUST_FLAGS` (I'm actually unclear why `prql-elixir` builds
+  disables passing `RUSTFLAGS` (I'm actually unclear why `prql-elixir` builds
   successfully in that case...)
 - Directing other cargo calls to different paths, such as `/target-ra` for Rust
   Analyzer and `/target-book` for the book building. But one `cargo build` from
@@ -72,9 +72,8 @@ caching issues. We can also re-enable them if the `cargo` issue is resolved.
 
 To test on Mac temporarily — for example if there's an error in GHA and we're on
 a Mac locally — apply a diff like this, and then run `cargo build` from the
-`prql-elixir` path, which will enable the local
-[`.cargo/config.toml`](native/prql/.cargo/config.toml)). (We could also make a
-feature like `elixir-mac` which enabled building on Mac).
+`prql-elixir` path, which will enable the local [`.cargo/config.toml`]). (We
+could also make a feature like `elixir-mac` which enabled building on Mac).
 
 ```diff
 diff --git a/bindings/prql-elixir/native/prql/Cargo.toml b/bindings/prql-elixir/native/prql/Cargo.toml
@@ -82,7 +81,7 @@ index 7194ca4f..9c7240ff 100644
 --- a/bindings/prql-elixir/native/prql/Cargo.toml
 +++ b/bindings/prql-elixir/native/prql/Cargo.toml
 @@ -19,5 +19,5 @@ path = "src/lib.rs"
- prql-compiler = {path = "../../../../prql-compiler", default-features = false, version = "0.6.1"}
+ prql-compiler = {path = "../../../../crates/prql-compiler", default-features = false, version = "0.6.1"}
 
  # See Readme for details on Mac
 -[target.'cfg(not(any(target_family="wasm", target_os = "macos")))'.dependencies]
@@ -101,3 +100,6 @@ index 2c5c8f27..68e77217 100644
  // TODO: unclear why we need this `allow`; it's required in `CompileOptions`,
 
 ```
+
+[`.cargo/config.toml`]:
+  https://github.com/PRQL/prql/blob/main/bindings/prql-elixir/native/prql/.cargo/config.toml
