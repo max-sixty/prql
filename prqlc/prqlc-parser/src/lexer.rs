@@ -4,6 +4,7 @@ use chumsky::{
     text::{newline, Character},
 };
 
+use itertools::Itertools;
 use prqlc_ast::expr::*;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -19,7 +20,7 @@ pub enum Token {
         bind_left: bool,
         bind_right: bool,
     },
-    Interpolation(char, String),
+    Interpolation(char, Vec<Token>),
 
     /// single-char control tokens
     Control(char),
@@ -88,7 +89,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
 
     let interpolation = one_of("sf")
         .then(quoted_string(true))
-        .map(|(c, s)| Token::Interpolation(c, s));
+        .map(|(c, s)| Token::Interpolation(c, vec![Token::Literal(Literal::String(s))]));
 
     // I think declaring this and then cloning will be more performant than
     // calling the function on each invocation.
@@ -500,7 +501,11 @@ impl std::fmt::Display for Token {
                 if *bind_right { "" } else { " " }
             ),
             Token::Interpolation(c, s) => {
-                write!(f, "{c}\"{}\"", s)
+                write!(
+                    f,
+                    "{c}\"{}\"",
+                    s.into_iter().map(|x| x.to_string()).join("")
+                )
             }
         }
     }
