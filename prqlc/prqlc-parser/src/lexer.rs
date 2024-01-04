@@ -374,44 +374,47 @@ fn literal() -> impl Parser<char, Literal, Error = Cheap<char>> {
     ))
 }
 
-fn quoted_string(escaped: bool) -> impl Parser<char, String, Error = Cheap<char>> {
-    choice((
-        quoted_string_of_quote(&'"', escaped),
-        quoted_string_of_quote(&'\'', escaped),
-    ))
-    .collect::<String>()
-    .labelled("string")
-}
-
-fn quoted_string_of_quote(
-    quote: &char,
-    escaping: bool,
-) -> impl Parser<char, Vec<char>, Error = Cheap<char>> + '_ {
-    let opening = just(*quote).repeated().at_least(1);
+fn quoted_string_of_quote<T>(
+    quote: char,
+    inner_parser: impl Parser<char, T, Error = Cheap<char>> + Clone + 'static,
+) -> impl Parser<char, Vec<T>, Error = Cheap<char>> {
+    let opening = just(quote).repeated().at_least(1);
 
     opening.then_with(move |opening| {
         if opening.len() % 2 == 0 {
-            // If we have an even number of quotes, it's an empty string.
-            return (just(vec![])).boxed();
+            // Adjust this to return an empty Vec<T>
+            return just(empty()).boxed();
         }
-        let delimiter = just(*quote).repeated().exactly(opening.len());
+        let delimiter = just(quote).repeated().exactly(opening.len());
 
-        let inner = if escaping {
-            choice((
-                // If we're escaping, don't allow consuming a backslash
-                // We need the `vec` to satisfy the type checker
-                (delimiter.or(just(vec!['\\']))).not(),
-                escaped_character(),
-                // Or escape the quote char of the current string
-                just('\\').ignore_then(just(*quote)),
-            ))
-            .boxed()
-        } else {
-            delimiter.not().boxed()
-        };
-
-        inner.repeated().then_ignore(delimiter).boxed()
+        inner_parser.repeated().then_ignore(delimiter).boxed()
     })
+}
+
+// Adjust the quoted_string function to handle different inner parsers.
+fn quoted_string_inner<T>(
+    inner_parser: impl Parser<char, T, Error = Cheap<char>> + Clone + 'static,
+) -> impl Parser<char, Vec<T>, Error = Cheap<char>> {
+    choice((
+        quoted_string_of_quote('\"', inner_parser.clone()),
+        quoted_string_of_quote('\'', inner_parser),
+    ))
+}
+
+fn quoted_string(escape: bool) -> impl Parser<char, String, Error = Cheap<char>> {
+    if escape {
+        quoted_string_inner(escaped_character())
+            .map(|chars| chars.into_iter().collect::<String>())
+            .labelled("string")
+    } else {
+        quoted_string_inner(none_of('\"').repeated())
+            .map(|chars| chars.into_iter().collect::<String>())
+            .labelled("string")
+    }
+}
+
+fn escaped_string() {
+    quoted_string(escaped_character())
 }
 
 fn escaped_character() -> impl Parser<char, char, Error = Cheap<char>> {
