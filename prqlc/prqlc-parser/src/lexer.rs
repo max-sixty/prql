@@ -20,8 +20,9 @@ pub enum Token {
         bind_left: bool,
         bind_right: bool,
     },
-    Interpolation(char, Vec<Token>),
+    Interpolation(char, Vec<InterpolateItem>),
 
+    // InterpolationItem(InterpolateItem),
     /// single-char control tokens
     Control(char),
 
@@ -40,114 +41,143 @@ pub enum Token {
     Annotate, // @
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum InterpolateItem {
+    String(String),
+    Expr(Vec<Token>),
+}
+
 pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
-    let whitespace = filter(|x: &char| x.is_inline_whitespace())
+    recursive(|parser| {
+        let whitespace = filter(|x: &char| x.is_inline_whitespace())
+            .repeated()
+            .at_least(1)
+            .ignored();
+
+        let control_multi = choice((
+            just("->").to(Token::ArrowThin),
+            just("=>").to(Token::ArrowFat),
+            just("==").to(Token::Eq),
+            just("!=").to(Token::Ne),
+            just(">=").to(Token::Gte),
+            just("<=").to(Token::Lte),
+            just("~=").to(Token::RegexSearch),
+            just("&&").then_ignore(end_expr()).to(Token::And),
+            just("||").then_ignore(end_expr()).to(Token::Or),
+            just("??").to(Token::Coalesce),
+            just("//").to(Token::DivInt),
+            // just("**").to(Token::Pow),
+            just("@").then(digits(1).not().rewind()).to(Token::Annotate),
+        ));
+
+        let control = one_of("></%=+-*[]().,:|!{}").map(Token::Control);
+
+        let ident = ident_part().map(Token::Ident);
+
+        let keyword = choice((
+            just("let"),
+            just("into"),
+            just("case"),
+            just("prql"),
+            just("type"),
+            just("module"),
+            just("internal"),
+            just("func"),
+        ))
+        .then_ignore(end_expr())
+        .map(|x| x.to_string())
+        .map(Token::Keyword);
+
+        let literal_ = literal().map(Token::Literal);
+
+        let param = just('$')
+            .ignore_then(
+                filter(|c: &char| c.is_alphanumeric() || *c == '_' || *c == '.').repeated(),
+            )
+            .collect::<String>()
+            .map(Token::Param);
+
+        // TODO: fix string lexer here
+        let interpolation_item = (filter(|c| *c != '{' && (*c != '\"'))
+            // any()
+            .repeated()
+            .at_least(1)
+            .collect()
+            .map(InterpolateItem::String))
+        .or(parser.clone().delimited_by(just('{'), just('}')).map(
+            |x: Vec<(Token, std::ops::Range<usize>)>| {
+                InterpolateItem::Expr(x.into_iter().map(|(t, _)| t).collect())
+            },
+        ));
+
+        let interpolation = one_of("sf").ignore_then(literal()).map(Token::Literal);
+
+        let interpolation = one_of("sf")
+            //  .ignore_then(literal()).map(Token::Literal);
+            .then(interpolation_item.repeated())
+            .delimited_by(just("\""), just("\""))
+            // // .map_with_span(|(c, s), span| (Token::Interpolation(c, s), span));
+            .map(|(c, s)| Token::Interpolation(c, s));
+        // .map(|(c, s)| Token::Interpolation(c, vec![Token::Literal(Literal::String(s))]));
+
+        // I think declaring this and then cloning will be more performant than
+        // calling the function on each invocation.
+        // https://github.com/zesterer/chumsky/issues/501 would allow us to avoid
+        // this, and let us split up this giant function without sacrificing
+        // performance.
+        let newline = newline();
+
+        let token = choice((
+            newline.to(Token::NewLine),
+            control_multi,
+            interpolation,
+            param,
+            control,
+            literal_,
+            keyword,
+            ident,
+        ))
+        .recover_with(skip_then_retry_until([]).skip_start());
+
+        let comment = just('#')
+            .then(newline.not().repeated())
+            .separated_by(newline.then(whitespace.or_not()))
+            .at_least(1)
+            .ignored();
+
+        let range = (whitespace.or_not())
+            .then_ignore(just(".."))
+            .then(whitespace.or_not())
+            .map(|(left, right)| Token::Range {
+                bind_left: left.is_none(),
+                bind_right: right.is_none(),
+            })
+            .map_with_span(|tok, span| (tok, span));
+
+        let line_wrap = newline
+            .then(
+                // We can optionally have an empty line, or a line with a comment,
+                // between the initial line and the continued line
+                whitespace
+                    .or_not()
+                    .then(comment.or_not())
+                    .then(newline)
+                    .repeated(),
+            )
+            .then(whitespace.repeated())
+            .then(just('\\'))
+            .ignored();
+
+        let ignored = choice((comment, whitespace, line_wrap)).repeated();
+
+        choice((
+            range,
+            ignored.ignore_then(token.map_with_span(|tok, span| (tok, span))),
+        ))
         .repeated()
-        .at_least(1)
-        .ignored();
-
-    let control_multi = choice((
-        just("->").to(Token::ArrowThin),
-        just("=>").to(Token::ArrowFat),
-        just("==").to(Token::Eq),
-        just("!=").to(Token::Ne),
-        just(">=").to(Token::Gte),
-        just("<=").to(Token::Lte),
-        just("~=").to(Token::RegexSearch),
-        just("&&").then_ignore(end_expr()).to(Token::And),
-        just("||").then_ignore(end_expr()).to(Token::Or),
-        just("??").to(Token::Coalesce),
-        just("//").to(Token::DivInt),
-        // just("**").to(Token::Pow),
-        just("@").then(digits(1).not().rewind()).to(Token::Annotate),
-    ));
-
-    let control = one_of("></%=+-*[]().,:|!{}").map(Token::Control);
-
-    let ident = ident_part().map(Token::Ident);
-
-    let keyword = choice((
-        just("let"),
-        just("into"),
-        just("case"),
-        just("prql"),
-        just("type"),
-        just("module"),
-        just("internal"),
-        just("func"),
-    ))
-    .then_ignore(end_expr())
-    .map(|x| x.to_string())
-    .map(Token::Keyword);
-
-    let literal = literal().map(Token::Literal);
-
-    let param = just('$')
-        .ignore_then(filter(|c: &char| c.is_alphanumeric() || *c == '_' || *c == '.').repeated())
-        .collect::<String>()
-        .map(Token::Param);
-
-    let interpolation = one_of("sf")
-        .then(quoted_string(true))
-        .map(|(c, s)| Token::Interpolation(c, vec![Token::Literal(Literal::String(s))]));
-
-    // I think declaring this and then cloning will be more performant than
-    // calling the function on each invocation.
-    // https://github.com/zesterer/chumsky/issues/501 would allow us to avoid
-    // this, and let us split up this giant function without sacrificing
-    // performance.
-    let newline = newline();
-
-    let token = choice((
-        newline.to(Token::NewLine),
-        control_multi,
-        interpolation,
-        param,
-        control,
-        literal,
-        keyword,
-        ident,
-    ))
-    .recover_with(skip_then_retry_until([]).skip_start());
-
-    let comment = just('#')
-        .then(newline.not().repeated())
-        .separated_by(newline.then(whitespace.or_not()))
-        .at_least(1)
-        .ignored();
-
-    let range = (whitespace.or_not())
-        .then_ignore(just(".."))
-        .then(whitespace.or_not())
-        .map(|(left, right)| Token::Range {
-            bind_left: left.is_none(),
-            bind_right: right.is_none(),
-        })
-        .map_with_span(|tok, span| (tok, span));
-
-    let line_wrap = newline
-        .then(
-            // We can optionally have an empty line, or a line with a comment,
-            // between the initial line and the continued line
-            whitespace
-                .or_not()
-                .then(comment.or_not())
-                .then(newline)
-                .repeated(),
-        )
-        .then(whitespace.repeated())
-        .then(just('\\'))
-        .ignored();
-
-    let ignored = choice((comment, whitespace, line_wrap)).repeated();
-
-    choice((
-        range,
-        ignored.ignore_then(token.map_with_span(|tok, span| (tok, span))),
-    ))
-    .repeated()
-    .then_ignore(ignored)
-    .then_ignore(end())
+        .then_ignore(ignored)
+        .then_ignore(end())
+    })
 }
 
 pub fn ident_part() -> impl Parser<char, String, Error = Cheap<char>> + Clone {
@@ -511,6 +541,15 @@ impl std::fmt::Display for Token {
     }
 }
 
+impl std::fmt::Display for InterpolateItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InterpolateItem::String(s) => write!(f, "{}", s),
+            InterpolateItem::Expr(expr) => write!(f, "{}", expr.iter().join("")),
+        }
+    }
+}
+
 #[test]
 fn test_line_wrap() {
     use insta::assert_debug_snapshot;
@@ -636,4 +675,78 @@ fn quotes() {
 
     // Unicode escape
     assert_snapshot!(quoted_string(true).parse(r"'\u{01f422}'").unwrap(), @"🐢");
+}
+
+#[test]
+fn interpolate() {
+    use insta::assert_debug_snapshot;
+
+    assert_debug_snapshot!(lexer().parse(r#""hello""#).unwrap(), @r###"
+    [
+        (
+            Literal(
+                String(
+                    "hello",
+                ),
+            ),
+            0..7,
+        ),
+    ]
+    "###);
+
+    assert_debug_snapshot!(lexer().parse(r#"s"hello""#).unwrap(), @r###"
+    [
+        (
+            Ident(
+                "s",
+            ),
+            0..1,
+        ),
+        (
+            Literal(
+                String(
+                    "hello",
+                ),
+            ),
+            1..8,
+        ),
+    ]
+    "###);
+
+    assert_debug_snapshot!(lexer().parse(r#"s"{hello}""#).unwrap(), @r###"
+    [
+        (
+            Ident(
+                "s",
+            ),
+            0..1,
+        ),
+        (
+            Literal(
+                String(
+                    "{hello}",
+                ),
+            ),
+            1..10,
+        ),
+    ]
+    "###);
+    assert_debug_snapshot!(lexer().parse(r#"s"{hello}world""#).unwrap(), @r###"
+    [
+        (
+            Ident(
+                "s",
+            ),
+            0..1,
+        ),
+        (
+            Literal(
+                String(
+                    "{hello}world",
+                ),
+            ),
+            1..15,
+        ),
+    ]
+    "###)
 }
