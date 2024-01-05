@@ -124,9 +124,11 @@ fn parser(span_base: ParserSpan) -> impl Parser<char, Vec<InterpolateItem>, Erro
         });
 
     // Convert double braces to single braces, and fail on any single braces.
-    let string = (just("{{").to('{'))
-        .or(just("}}").to('}'))
-        .or(none_of("{}"))
+    let string = 
+    // (just("{{").to('{'))
+    //     .or(just("}}").to('}'))
+        // .or(none_of("{}"))
+        (none_of("{}"))
         .repeated()
         .at_least(1)
         .collect::<String>()
