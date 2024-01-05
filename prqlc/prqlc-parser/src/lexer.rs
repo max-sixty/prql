@@ -48,7 +48,11 @@ pub enum InterpolateItem {
     Expr(Vec<Token>),
 }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
+pub fn lex_token(
+    // TODO: I think we can do this by passing this parser to a `map(filter...`
+    // which excludes the `}` token?
+    disallowed_chars: Vec<char>,
+) -> impl Parser<char, (Token, std::ops::Range<usize>), Error = Cheap<char>> {
     let whitespace = filter(|x: &char| x.is_inline_whitespace())
         .repeated()
         .at_least(1)
@@ -70,7 +74,8 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
         just("@").then(digits(1).not().rewind()).to(Token::Annotate),
     ));
 
-    let control = one_of("></%=+-*[]().,:|!{}").map(Token::Control);
+    // let control = one_of("></%=+-*[]().,:|!{}").map(Token::Control);
+    let control = one_of("></%=+-*[]().,:|!{").map(Token::Control);
 
     let ident = ident_part().map(Token::Ident);
 
@@ -96,8 +101,10 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
         .map(Token::Param);
 
     let interpolation = one_of("sf")
-        .then(quoted_string(true))
-        .map(|(c, s)| Token::Interpolation(c, vec![InterpolateItem::String(s)]));
+        // .then(quoted_string(true))
+        // .map(|(c, s)| Token::Interpolation(c, vec![InterpolateItem::String(s)]));
+        .then(interpolated_string(&'"', true))
+        .map(|(c, s)| Token::Interpolation(c, s));
 
     // I think declaring this and then cloning will be more performant than
     // calling the function on each invocation.
@@ -115,8 +122,8 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
         literal,
         keyword,
         ident,
-    ))
-    .recover_with(skip_then_retry_until([]).skip_start());
+    ));
+    // .recover_with(skip_then_retry_until([]).skip_start());
 
     let comment = just('#')
         .then(newline.not().repeated())
@@ -149,13 +156,28 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
 
     let ignored = choice((comment, whitespace, line_wrap)).repeated();
 
+    // choice((
+    //     range,
+    //     ignored.ignore_then(
+    //         none_of(disallowed_chars)
+    //             .rewind()
+    //             .ignore_then(token.map_with_span(|tok, span| (tok, span))),
+    //     ),
+    // ))
     choice((
         range,
         ignored.ignore_then(token.map_with_span(|tok, span| (tok, span))),
     ))
-    .repeated()
-    .then_ignore(ignored)
-    .then_ignore(end())
+}
+
+/// Lex token until the end of the input
+pub fn lexer(
+    disallowed_chars: Vec<char>,
+) -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
+    lex_token(disallowed_chars)
+        .repeated()
+        // .then_ignore(ignored)
+        .then_ignore(end())
 }
 
 pub fn ident_part() -> impl Parser<char, String, Error = Cheap<char>> + Clone {
@@ -361,20 +383,80 @@ fn quoted_string(escaped: bool) -> impl Parser<char, String, Error = Cheap<char>
     .labelled("string")
 }
 
+// fn lexer_bracket() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
+//     // lexer(vec![]).then_ignore(just('}'))
+//     lexer(vec![])
+// }
+
+// #[test]
+// fn test_lexer_bracket() {
+//     use insta::assert_debug_snapshot;
+
+//     assert_debug_snapshot!(lexer_bracket().parse_recovery_verbose(r"{test"), @r###"
+//     (
+//         Some(
+//             [
+//                 (
+//                     Control(
+//                         '{',
+//                     ),
+//                     0..1,
+//                 ),
+//                 (
+//                     Ident(
+//                         "test",
+//                     ),
+//                     1..5,
+//                 ),
+//             ],
+//         ),
+//         [],
+//     )
+//     "###);
+// }
+
+fn interpolated_expr() -> impl Parser<char, Vec<Token>, Error = Cheap<char>> {
+    // .then_with(|expr| {
+    //     lexer(vec![])
+    //         .parse(expr)
+    //         // .unwrap()
+    //         // .into_iter()
+    //         .map(|x| InterpolateItem::Expr(x.into_iter().map(|(tok, _)| tok).collect()))
+    //         .unwrap()
+    // });
+    //
+    // .labelled("expr")
+    // let expr = ident_part()
+    // .delimited_by(just('{'), just('}'))
+    // .map(|x| InterpolateItem::Expr(vec![Token::Ident(x)]));
+
+    just('{')
+        .ignored()
+        // .ignore_then(just('}').not().repeated())
+        // .then_ignore(filter(|c| *c != '}').rewind())
+        .then(lex_token(vec!['}']).repeated())
+        .then_ignore(just('}'))
+        // .map(|x| )
+        // .collect()
+        .map(|x| (x.1.into_iter().map(|(tok, _)| tok).collect()))
+}
+
 fn interpolated_string(
     quote: &char,
     escaping: bool,
-) -> impl Parser<char, Vec<char>, Error = Cheap<char>> + '_ {
+) -> impl Parser<char, Vec<InterpolateItem>, Error = Cheap<char>> + '_ {
     let opening = just(*quote).repeated().at_least(1);
 
     opening.then_with(move |opening| {
         if opening.len() % 2 == 0 {
             // If we have an even number of quotes, it's an empty string.
-            return (just(vec![])).boxed();
+            // return (just(Vec::<InterpolateItem>::new())).boxed();
+            todo!();
         }
         let delimiter = just(*quote).repeated().exactly(opening.len());
 
-        let expr = any().delimited_by(just('{'), just('}'));
+        let expr = interpolated_expr().map(InterpolateItem::Expr);
+
         let string = if escaping {
             choice((
                 // If we're escaping, don't allow consuming a backslash
@@ -386,10 +468,19 @@ fn interpolated_string(
             ))
             .boxed()
         } else {
-            delimiter.not().boxed()
-        };
+            delimiter.or(just(vec!['{'])).not().boxed()
+        }
+        .repeated()
+        .at_least(1)
+        .collect()
+        .map(InterpolateItem::String);
 
-        expr.or(string).repeated().then_ignore(delimiter).boxed()
+        choice((expr, string))
+            .repeated()
+            .at_least(1)
+            .then_ignore(delimiter)
+            .boxed()
+        // expr.repeated().then_ignore(delimiter).boxed()
     })
 }
 
@@ -563,11 +654,33 @@ impl std::fmt::Display for InterpolateItem {
 }
 
 #[test]
+fn test_lexer() {
+    use insta::assert_debug_snapshot;
+
+    assert_debug_snapshot!(lex_token(vec![]).repeated().parse(r"{test}").unwrap(), @r###"
+    [
+        (
+            Control(
+                '{',
+            ),
+            0..1,
+        ),
+        (
+            Ident(
+                "test",
+            ),
+            1..5,
+        ),
+    ]
+    "###);
+}
+
+#[test]
 fn test_line_wrap() {
     use insta::assert_debug_snapshot;
 
     // (TODO: is there a terser way of writing our lexer output?)
-    assert_debug_snapshot!(lexer().parse(r"5 +
+    assert_debug_snapshot!(lexer(vec![]).parse(r"5 +
     \ 3 "
         ).unwrap(), @r###"
     [
@@ -597,7 +710,7 @@ fn test_line_wrap() {
     "###);
 
     // Comments get skipped over
-    assert_debug_snapshot!(lexer().parse(r"5 +
+    assert_debug_snapshot!(lexer(vec![]).parse(r"5 +
 # comment
    # comment with whitespace
   \ 3 "
@@ -690,66 +803,230 @@ fn quotes() {
 }
 
 #[test]
+fn test_interpolated_expr() {
+    use insta::assert_debug_snapshot;
+
+    assert_debug_snapshot!(interpolated_expr().parse_recovery_verbose("{hello}"), @r###"
+    (
+        Some(
+            [
+                Ident(
+                    "hello",
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
+
+    assert_debug_snapshot!(interpolated_expr().parse_recovery_verbose("{hello + 5}"), @r###"
+    (
+        Some(
+            [
+                Ident(
+                    "hello",
+                ),
+                Control(
+                    '+',
+                ),
+                Literal(
+                    Integer(
+                        5,
+                    ),
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
+
+    assert_debug_snapshot!(interpolated_expr().parse_recovery_verbose("{hello}{foo}"), @r###"
+    (
+        Some(
+            [
+                Ident(
+                    "hello",
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
+}
+
+#[test]
 fn interpolate() {
     use insta::assert_debug_snapshot;
 
-    assert_debug_snapshot!(lexer().parse(r#""hello""#).unwrap(), @r###"
-    [
-        (
-            Literal(
+    let interpolated_string = interpolated_string(&'"', false);
+
+    assert_debug_snapshot!(interpolated_string.parse_recovery_verbose(r#""{hello + 5}""#), @r###"
+    (
+        Some(
+            [
+                Expr(
+                    [
+                        Ident(
+                            "hello",
+                        ),
+                        Control(
+                            '+',
+                        ),
+                        Literal(
+                            Integer(
+                                5,
+                            ),
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
+
+    assert_debug_snapshot!(interpolated_string.parse_recovery_verbose(r#""hello""#), @r###"
+    (
+        Some(
+            [
                 String(
                     "hello",
                 ),
-            ),
-            0..7,
+            ],
         ),
-    ]
+        [],
+    )
     "###);
 
-    assert_debug_snapshot!(lexer().parse(r#"s"hello""#).unwrap(), @r###"
-    [
-        (
-            Interpolation(
-                's',
+    assert_debug_snapshot!(interpolated_string.parse(r#""{hello}world""#), @r###"
+    Ok(
+        [
+            Expr(
                 [
-                    String(
+                    Ident(
                         "hello",
                     ),
                 ],
             ),
-            0..8,
-        ),
-    ]
+            String(
+                "world",
+            ),
+        ],
+    )
     "###);
 
-    assert_debug_snapshot!(lexer().parse(r#"s"{hello}""#).unwrap(), @r###"
-    [
-        (
-            Interpolation(
-                's',
-                [
-                    String(
-                        "{hello}",
-                    ),
-                ],
-            ),
-            0..10,
+    assert_debug_snapshot!(interpolated_string.parse_recovery_verbose(r#""{hello}{world}""#), @r###"
+    (
+        Some(
+            [
+                Expr(
+                    [
+                        Ident(
+                            "hello",
+                        ),
+                    ],
+                ),
+                Expr(
+                    [
+                        Ident(
+                            "world",
+                        ),
+                    ],
+                ),
+            ],
         ),
-    ]
+        [],
+    )
     "###);
-    assert_debug_snapshot!(lexer().parse(r#"s"{hello}world""#).unwrap(), @r###"
-    [
-        (
-            Interpolation(
-                's',
-                [
-                    String(
-                        "{hello}world",
-                    ),
-                ],
-            ),
-            0..15,
+
+    assert_debug_snapshot!(interpolated_string.parse_recovery_verbose(r#""{hello}world""#), @r###"
+    (
+        Some(
+            [
+                Expr(
+                    [
+                        Ident(
+                            "hello",
+                        ),
+                    ],
+                ),
+                String(
+                    "world",
+                ),
+            ],
         ),
-    ]
-    "###)
+        [],
+    )
+    "###);
+
+    assert_debug_snapshot!(interpolated_string.parse_recovery_verbose(r#""{hello + 5}world""#), @r###"
+    (
+        Some(
+            [
+                Expr(
+                    [
+                        Ident(
+                            "hello",
+                        ),
+                        Control(
+                            '+',
+                        ),
+                        Literal(
+                            Integer(
+                                5,
+                            ),
+                        ),
+                    ],
+                ),
+                String(
+                    "world",
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
+
+    assert_debug_snapshot!(lexer(vec![]).parse_recovery_verbose(r#"hello + 5}"#), @r###"
+    (
+        None,
+        [
+            Cheap {
+                span: 9..10,
+                label: None,
+                phantom: PhantomData<char>,
+            },
+        ],
+    )
+    "###);
+
+    assert_debug_snapshot!(lexer(vec![]).parse_recovery_verbose(r#"hello + 5"#), @r###"
+    (
+        Some(
+            [
+                (
+                    Ident(
+                        "hello",
+                    ),
+                    0..5,
+                ),
+                (
+                    Control(
+                        '+',
+                    ),
+                    6..7,
+                ),
+                (
+                    Literal(
+                        Integer(
+                            5,
+                        ),
+                    ),
+                    8..9,
+                ),
+            ],
+        ),
+        [],
+    )
+    "###);
 }
