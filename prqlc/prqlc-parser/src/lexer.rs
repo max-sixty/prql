@@ -352,6 +352,40 @@ fn quoted_string(escaped: bool) -> impl Parser<char, String, Error = Cheap<char>
     .labelled("string")
 }
 
+fn interpolated_string(
+    quote: &char,
+    escaping: bool,
+) -> impl Parser<char, Vec<char>, Error = Cheap<char>> + '_ {
+    let opening = just(*quote).repeated().at_least(1);
+
+    opening.then_with(move |opening| {
+        if opening.len() % 2 == 0 {
+            // If we have an even number of quotes, it's an empty string.
+            return (just(vec![])).boxed();
+        }
+        let delimiter = just(*quote).repeated().exactly(opening.len());
+
+        let expr = any().delimited_by(just('{'), just('}'));
+        let string = if escaping {
+            choice((
+                // If we're escaping, don't allow consuming a backslash
+                // We need the `vec` to satisfy the type checker
+                (delimiter.or(just(vec!['\\']).or(just(vec!['{'])))).not(),
+                escaped_character(),
+                // Or escape the quote char of the current string
+                just('\\').ignore_then(just(*quote).or(just('{'))),
+            ))
+            .boxed()
+        } else {
+            delimiter.not().boxed()
+        };
+
+        inner.repeated().then_ignore(delimiter).boxed()
+    })
+}
+
+// fn inner_string(opening: &char, )
+
 fn quoted_string_of_quote(
     quote: &char,
     escaping: bool,
