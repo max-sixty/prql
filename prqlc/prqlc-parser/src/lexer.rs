@@ -4,6 +4,7 @@ use chumsky::{
     text::{newline, Character},
 };
 
+use itertools::Itertools;
 use prqlc_ast::expr::*;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -19,8 +20,10 @@ pub enum Token {
         bind_left: bool,
         bind_right: bool,
     },
-    Interpolation(char, String),
+    // Interpolation(char, String),
+    Interpolation(char, Vec<InterpolateItem>),
 
+    // InterpolationItem(InterpolateItem),
     /// single-char control tokens
     Control(char),
 
@@ -37,6 +40,12 @@ pub enum Token {
     DivInt,      // //
     // Pow,         // **
     Annotate, // @
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum InterpolateItem {
+    String(String),
+    Expr(Vec<Token>),
 }
 
 pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error = Cheap<char>> {
@@ -88,7 +97,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, std::ops::Range<usize>)>, Error 
 
     let interpolation = one_of("sf")
         .then(quoted_string(true))
-        .map(|(c, s)| Token::Interpolation(c, s));
+        .map(|(c, s)| Token::Interpolation(c, vec![InterpolateItem::String(s)]));
 
     // I think declaring this and then cloning will be more performant than
     // calling the function on each invocation.
@@ -380,7 +389,7 @@ fn interpolated_string(
             delimiter.not().boxed()
         };
 
-        inner.repeated().then_ignore(delimiter).boxed()
+        expr.or(string).repeated().then_ignore(delimiter).boxed()
     })
 }
 
@@ -534,8 +543,21 @@ impl std::fmt::Display for Token {
                 if *bind_right { "" } else { " " }
             ),
             Token::Interpolation(c, s) => {
-                write!(f, "{c}\"{}\"", s)
+                write!(
+                    f,
+                    "{c}\"{}\"",
+                    s.into_iter().map(|x| x.to_string()).join("")
+                )
             }
+        }
+    }
+}
+
+impl std::fmt::Display for InterpolateItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InterpolateItem::String(s) => write!(f, "{}", s),
+            InterpolateItem::Expr(expr) => write!(f, "{}", expr.iter().join("")),
         }
     }
 }
@@ -665,4 +687,69 @@ fn quotes() {
 
     // Unicode escape
     assert_snapshot!(quoted_string(true).parse(r"'\u{01f422}'").unwrap(), @"🐢");
+}
+
+#[test]
+fn interpolate() {
+    use insta::assert_debug_snapshot;
+
+    assert_debug_snapshot!(lexer().parse(r#""hello""#).unwrap(), @r###"
+    [
+        (
+            Literal(
+                String(
+                    "hello",
+                ),
+            ),
+            0..7,
+        ),
+    ]
+    "###);
+
+    assert_debug_snapshot!(lexer().parse(r#"s"hello""#).unwrap(), @r###"
+    [
+        (
+            Interpolation(
+                's',
+                [
+                    String(
+                        "hello",
+                    ),
+                ],
+            ),
+            0..8,
+        ),
+    ]
+    "###);
+
+    assert_debug_snapshot!(lexer().parse(r#"s"{hello}""#).unwrap(), @r###"
+    [
+        (
+            Interpolation(
+                's',
+                [
+                    String(
+                        "{hello}",
+                    ),
+                ],
+            ),
+            0..10,
+        ),
+    ]
+    "###);
+    assert_debug_snapshot!(lexer().parse(r#"s"{hello}world""#).unwrap(), @r###"
+    [
+        (
+            Interpolation(
+                's',
+                [
+                    String(
+                        "{hello}world",
+                    ),
+                ],
+            ),
+            0..15,
+        ),
+    ]
+    "###)
 }
