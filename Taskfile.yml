@@ -14,6 +14,23 @@
 
 version: "3"
 
+includes:
+  prqlc:
+    taskfile: ./prqlc
+    dir: ./prqlc
+  zig:
+    taskfile: ./prqlc/bindings/prqlc-c/examples/minimal-zig
+    dir: ./prqlc/bindings/prqlc-c/examples/minimal-zig
+  lutra:
+    taskfile: ./lutra
+    dir: ./lutra
+  web:
+    taskfile: ./web
+    dir: ./web
+  python:
+    taskfile: ./prqlc/bindings/prqlc-python
+    dir: ./prqlc/bindings/prqlc-python
+
 vars:
   # Keep in sync with .vscode/extensions.json
   vscode_extensions: |
@@ -23,9 +40,9 @@ vars:
     prql-lang.prql-vscode
     rust-lang.rust-analyzer
   cargo_crates: >
-    bacon cargo-audit cargo-insta cargo-release default-target mdbook
-    mdbook-admonish mdbook-footnote mdbook-toc wasm-bindgen-cli wasm-opt
-    wasm-pack
+    bacon cbindgen cargo-audit cargo-insta cargo-llvm-cov cargo-release
+    default-target mdbook mdbook-admonish mdbook-footnote mdbook-toc nextest
+    wasm-bindgen-cli wasm-opt wasm-pack
   # Excluding `elixir` atm given it's not enabled on Mac and currently unsupported
   brew_dependencies: |
     hugo
@@ -42,7 +59,7 @@ tasks:
 
           🔴 Can't find `clang`, which is required to install a full development environment (we use `duckdb` in our tests, which requires it).
 
-          Please install it. On MacOS, that's
+          Please install it. On macOS, that's
 
             xcode-select --install
 
@@ -63,6 +80,7 @@ tasks:
       - task: install-pre-commit
       - task: install-npm-dependencies
       - pre-commit install-hooks
+      - rustup component add llvm-tools-preview
       - cmd: |
           echo "
           🟢 Setup complete! ✅🚀"
@@ -97,13 +115,7 @@ tasks:
 
   install-cargo-tools-binstall:
     cmds:
-      # Currently pinning 1.1.2 because of https://github.com/cargo-bins/cargo-binstall/issues/1292, and using `+stable` because it's not supported by 1.68.2.
-      - cmd:
-          # curl -L --proto '=https' --tlsv1.2 -sSf
-          # https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh
-          # | bash ||
-          rustup toolchain add stable && cargo +stable install --locked
-          cargo-binstall --version=1.1.2
+      - cmd: cargo install --locked cargo-binstall
         platforms: [linux, darwin]
       - "cargo binstall -y --locked {{.cargo_crates}}"
 
@@ -202,9 +214,8 @@ tasks:
       - brew install {{.brew_dependencies | trim | splitLines | join " " }}
 
   install-npm-dependencies:
-    # Use npm to install important tools
     cmds:
-      - npm install --location=global prettier prettier-plugin-go-template
+      - npm install --global prettier prettier-plugin-go-template
       - cmd:
           echo "In order to get nice auto-formatting of web code in VS Code, VS
           Code requires configuration to use the system-wide install of
@@ -226,13 +237,16 @@ tasks:
       # features themselves and so require recompiling. This is only useful for
       # caching.
       - cargo build --all-targets
-      - task: build-web
+      - cargo build --all-targets --features=default,test-dbs
+      - cargo doc
       - task: build-each-crate
+      - task: web:build
+      - task: python:build
 
   build-each-crate:
     summary: |
       Builds each crates individually. This is helpful for caching, since often
-      we'll want to run `cargo build -p prql-compiler`, and the dependencies can have
+      we'll want to run `cargo build -p prqlc`, and the dependencies can have
       different features for that relative to `cargo build`.
     vars:
       PACKAGES:
@@ -248,6 +262,18 @@ tasks:
         cargo build --all-targets -p {{ . }}
         {{ end -}}
 
+  test-rust-api:
+    summary: |
+      Run tests, excluding some internal crates
+    vars:
+      PACKAGES:
+        sh:
+          cargo metadata --format-version=1 | jq -r '.workspace_members[] |
+          split(" ")[0]'
+    cmds:
+      - |
+        cargo test {{ range without (splitLines .PACKAGES) "prqlc-ast" "prqlc-parser" }} -p={{ . }} {{ end }}
+
   test-all:
     desc: Test everything, accepting snapshots.
     summary: |
@@ -257,14 +283,15 @@ tasks:
 
     cmds:
       # TODO:
-      # - Add `prql-python` tests.
-      # - We could add `prql-lib` here.
+      # - We could add `prqlc-c` here.
       # - We deliberately don't test some other bindings, such as `prql-php`,
-      #   given they require more dependencies and aren't yet supported.
+      #   given they require more dependencies and aren't yet Supported. They
+      #   run in CI.
       - task: test-lint
       - task: test-rust
       - task: test-js
       - cargo insta test --accept --target=wasm32-unknown-unknown
+      - task: python:test
       - task: build-all
 
   test-rust:
@@ -279,10 +306,12 @@ tasks:
     #   - "**/*.lock"
     #   - "**/*.snap"
     cmds:
-      - cargo insta test --accept --features=test-dbs --unreferenced=auto
+      - cargo insta test --accept --features=default,test-dbs
+        --unreferenced=auto
+      - cargo clippy --fix --allow-dirty --allow-staged
 
   test-rust-fast:
-    desc: Test prql-compiler's unit tests.
+    desc: Test prqlc's unit tests.
     summary: |
       Test only unit tests, including accepting snapshots.
 
@@ -297,37 +326,33 @@ tasks:
       RUST_BACKTRACE: 1
     sources:
       # I don't think we can specify this is a single glob, which would be nice.
-      - "crates/**/*.rs"
-      - "crates/**/*.snap"
+      - "prqlc/**/*.rs"
+      - "prqlc/**/*.snap"
     cmds:
       - cargo insta test --accept --lib -- --quiet
 
-  build-web:
-    desc:
-      Build the web products for distribution - Website, Book, and Playground.
-    dir: web
+  test-rust-coverage:
+    desc: Run tests with instrumentation for code coverage.
+    summary:
+      Run tests with instrumentation for code coverage. This works with VS
+      Code's [Coverage
+      Gutters](https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters)
+      extension.
+    env:
+      # Use a different target dir so we don't poison the cache
+      CARGO_TARGET_DIR: "./target-cov"
     cmds:
-      - cd website && hugo --minify
-      - cd book && mdbook build
-      - mkdir -p website/public
-      # Copy the book into the website path, using rsync so it only copies new files
-      - rsync -ai --checksum --delete book/book/ website/public/book/
-      - task: build-playground-dependencies
-      - cd playground && npm run build
-      # We place the playground app in a nested path, because we want to use
-      # prql-lang.org/playground with an iframe containing the playground.
-      # Possibly there's a more elegant way of doing this...
-      - rsync -ai --checksum --delete playground/build/
-        website/public/playground/playground/
+      - cargo llvm-cov --lcov --output-path lcov.info
+        --features=default,test-dbs
 
   test-js:
-    dir: bindings/prql-js
+    dir: prqlc/bindings/js
     cmds:
       - npm cit
 
   # Currently disabled; see prql-elixir/README.md for details
   test-elixir:
-    dir: bindings/prql-elixir
+    dir: prqlc/bindings/elixir
     cmds:
       # We could move this line into an `install` task
       - mix local.hex --force
@@ -340,72 +365,29 @@ tasks:
     cmds:
       - pre-commit run -a
 
-  run-website:
-    desc: Build & serve the static website for interactive development.
-    dir: web/website
-    cmds:
-      - hugo server
-
-  run-book:
-    desc: Build & serve the book for interactive development.
-    dir: web/book
-    cmds:
-      - mdbook serve --port=3000
-
-  run-playground:
-    desc: Build & serve the playground for interactive development.
-    dir: web/playground
-    cmds:
-      - task: build-playground-dependencies
-      - npm start
-
-  build-playground-dependencies:
-    # Check if npm dependencies for the playground need to be updated
-    # Use task's sources/generates to see if package.json,
-    # or anything in crates or bindings was updated after the
-    # node_modules was rebuilt
-    #
-    # Note that `npm install --install-links=false` no longer necessary
-    desc: Install deps, checking whether a dependency recently changed
-    dir: web/playground
-    cmds:
-      - npm install
-    sources:
-      - package.json
-      - package-lock.json
-      - ../../crates/**/*.rs
-      - ../../bindings/**/*.rs
-
   build-php:
-    - cargo build -p prql-lib --release
-    - mkdir -p bindings/prql-php/lib/
-    - cp target/release/libprql_lib.* bindings/prql-lib/libprql_lib.h
-      bindings/prql-php/lib/
-    - cd bindings/prql-php && composer install
+    - cargo build --package prqlc-c --release
+    - mkdir -p prqlc/bindings/php/lib/
+    - cp target/release/libprqlc_c.* prqlc/bindings/prqlc-c/prqlc.h
+      prqlc/bindings/php/lib/
+    - cd prqlc/bindings/php && composer install
+
+  build-prqlc-c-header:
+    desc: Build the C header for the C bindings.
+    dir: prqlc/bindings/prqlc-c
+    cmds:
+      - cbindgen --crate prqlc-c --output prqlc.h
+      - cbindgen --crate prqlc-c --lang C++ --output prqlc.hpp
 
   test-php:
-    dir: bindings/prql-php
+    dir: prqlc/bindings/php
     cmds:
       - vendor/bin/phpunit tests
-# The next three tasks are not used for either:
+# The next two tasks are not used for either:
 #  - the Dockerfile (installing brew takes forever)
 #    so the Dockerfile simply installs hugo & nodejs directly
 #  - the "desktop setup" - it uses other tasks in the Taskfile.yml
 # They remain in the Taskfile.yml as a hint if they should ever be needed
-
-# install-brew:
-#   # Initially added for building Docker container
-#   status:
-#     - which brew
-#   cmds:
-#     # https://stackoverflow.com/questions/58292862/how-to-install-homebrew-on-ubuntu-inside-docker-container
-#     - useradd -m -s /bin/zsh linuxbrew
-#     - usermod -aG sudo linuxbrew
-#     - mkdir -p /home/linuxbrew/.linuxbrew
-#     - chown -R linuxbrew /home/linuxbrew/.linuxbrew
-#     - export HOMEBREW_INSTALL_FROM_API=1
-#     - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-#     - chown -R $CONTAINER_USER: /home/linuxbrew/.linuxbrew
 
 # install-hugo:
 #   cmds:
@@ -419,22 +401,3 @@ tasks:
 #     - curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
 #     - apt install -y nodejs
 #     - cd /app/playground/ ; npm install
-
-# These tasks have been factored out in favor of the remaining tasks
-# run-web:
-#   desc: Build & serve the website & playground.
-#   summary:
-#     Note that this only live-reloads the static website; and requires
-#     rerunning to pick up playground & book changes.
-#   dir: web/website
-#   cmds:
-#     - task: build-web
-#     # Then start web server with rendering to disk, so it picks up the playground files.
-#     - hugo server --renderToDisk
-
-# run-playground-cached:
-#   desc: Build & serve the playground, without rebuilding rust code.
-#   dir: web/playground
-#   cmds:
-#     - task: install-playground-dependencies
-#     - npm start

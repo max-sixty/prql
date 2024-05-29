@@ -1,5 +1,14 @@
+# prettier respects the root `.gitignore` file, so prefer that for files which
+# we also want to ignore from our version control. This should contain files we
+# want to track but not format.
+
+**/*.rs
 **/*.min.*
+
 /web/book/theme/highlight.js
+/web/playground/build
+/web/website/public
+/web/book/book
 
 # TODO: move these into content out of layouts
 /web/website/themes/prql-theme/layouts/_default/_markup/render-link.html

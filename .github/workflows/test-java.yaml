@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - run: ./.github/set_version.sh
+      - run: ./.github/workflows/scripts/set_version.sh
       - name: 💰 Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -29,5 +29,5 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           shared-key: lib
       - name: Maven test
-        working-directory: bindings/prql-java/java/
+        working-directory: prqlc/bindings/java/java/
         run: ./mvnw test

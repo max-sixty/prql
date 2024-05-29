@@ -38,9 +38,6 @@ formatting = function (hljs) {
     "_is_null",
     // Misc functions
     "from_text",
-    // String functions
-    "lower",
-    "upper",
     // Window functions
     "lag",
     "lead",
@@ -50,6 +47,8 @@ formatting = function (hljs) {
     "rank_dense",
     "row_number",
   ];
+
+  const MODULES = ["date", "math", "text"];
 
   const DATATYPES = [
     "bool",
@@ -90,6 +89,7 @@ formatting = function (hljs) {
     case_insensitive: true,
     keywords: {
       built_in: BUILTIN_FUNCTIONS,
+      module: MODULES,
       keyword: [...TRANSFORMS, ...BUILTIN_FUNCTIONS, ...KEYWORDS],
       literal: "false true null",
       type: DATATYPES,

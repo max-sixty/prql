@@ -1,14 +1,14 @@
 # Tuple on one line
 
-{foo, bar, baz}
+test {foo, bar, baz}
 
 ==>
 
-Query(Statements(PipelineStatement(Pipeline(TupleExpression(Identifier,Identifier,Identifier)))))
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(Identifier,Identifier,Identifier)))))
 
 # Tuple on multiple lines
 
-{
+test {
   foo,
   bar,
   baz
@@ -16,11 +16,11 @@ Query(Statements(PipelineStatement(Pipeline(TupleExpression(Identifier,Identifie
 
 ==>
 
-Query(Statements(PipelineStatement(Pipeline(TupleExpression(Identifier,Identifier,Identifier)))))
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(Identifier,Identifier,Identifier)))))
 
 # Tuple on multiple lines with blank lines
 
-{
+test {
 
   foo,
 
@@ -32,22 +32,22 @@ Query(Statements(PipelineStatement(Pipeline(TupleExpression(Identifier,Identifie
 
 ==>
 
-Query(Statements(PipelineStatement(Pipeline(TupleExpression(Identifier,Identifier,Identifier)))))
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(Identifier,Identifier,Identifier)))))
 
 # Tuple with key and value
 
-{foo=bar}
+test {foo=bar}
 
 ==>
 
-Query(Statements(PipelineStatement(Pipeline(TupleExpression(AssignCall(Identifier))))))
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(DeclarationTuple(DeclarationItem,Equals,Identifier))))))
 
 # Tuple with keys and values
 
-{identifier=identifier,int  =3, float=  3.14 ,
+test {identifier=identifier,int  =3, float=  3.14 ,
 string    =    "string"
 }
 
 ==>
 
-Query(Statements(PipelineStatement(Pipeline(TupleExpression(AssignCall(Identifier),AssignCall(Integer),AssignCall(Float),AssignCall(String))))))
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(DeclarationTuple(DeclarationItem,Equals,Identifier),DeclarationTuple(DeclarationItem,Equals,Integer),DeclarationTuple(DeclarationItem,Equals,Float),DeclarationTuple(DeclarationItem,Equals,String))))))

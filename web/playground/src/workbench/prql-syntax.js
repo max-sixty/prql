@@ -13,6 +13,7 @@ const TRANSFORMS = [
   "union",
   "window",
 ];
+const MODULES = ["date", "math", "text"];
 const BUILTIN_FUNCTIONS = ["case"]; // "in", "as"
 const KEYWORDS = ["let", "prql"];
 const LITERALS = ["null", "true", "false"];
@@ -20,31 +21,23 @@ const LITERALS = ["null", "true", "false"];
 const def = {
   // Set defaultToken to invalid to see what you do not tokenize yet
   // defaultToken: 'invalid',
-  tokenPostfix: ".prql",
 
-  keywords: [...TRANSFORMS, ...BUILTIN_FUNCTIONS, ...KEYWORDS, ...LITERALS],
-
-  typeKeywords: [
-    "bool",
-    "int8",
-    "int16",
-    "int32",
-    "int64",
-    "int128",
-    "int",
-    "float",
-    "text",
-    "set",
+  keywords: [
+    ...TRANSFORMS,
+    ...MODULES,
+    ...BUILTIN_FUNCTIONS,
+    ...KEYWORDS,
+    ...LITERALS,
   ],
 
   operators: [
+    "+",
     "-",
     "*",
     "/",
     "//",
     "%",
-    "+",
-    "-",
+    // "**",
     "==",
     "!=",
     "->",
@@ -71,14 +64,7 @@ const def = {
       // identifiers and keywords
       [
         /[a-z_$][\w$]*/,
-        {
-          cases: {
-            "@typeKeywords": "keyword.type",
-            "@keywords": "keyword",
-            "@constants": "keyword",
-            "@default": "identifier",
-          },
-        },
+        { cases: { "@keywords": "keyword", "@default": "identifier" } },
       ],
 
       // whitespace

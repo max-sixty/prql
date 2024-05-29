@@ -1,6 +1,218 @@
 # PRQL Changelog
 
-## [unreleased]
+## 0.11.5 — Unreleased
+
+**Language**:
+
+**Features**:
+
+- Initial implementation of an experimental documentation generator that
+  generates Markdown documentation from `.prql` files. (@vanillajonathan,
+  #4152).
+- Add `prqlc lex` command to the CLI (@max-sixty)
+- Join `side` parameter can take a reference that resolves to a literal (note:
+  this is an experimental feature which may change in the future) (@kgutwin,
+  #4499)
+
+**Fixes**:
+
+- Support expressions on left hand side of `std.in` operator. (@kgutwin, #4498)
+
+**Documentation**:
+
+**Web**:
+
+- The `browser` dist files are now built with `wasm-pack`'s `web` target. As a
+  result, they should be usable as ES Modules, through JS CDNs, and for example
+  with Observable Framework (@srenatus, #4274).
+
+**Integrations**:
+
+- The syntax highlighter package for Sublime Text is now
+  [published](https://packagecontrol.io/packages/PRQL) (@vanillajonathan).
+- The
+  [VSCode Great Icons](https://marketplace.visualstudio.com/items?itemName=emmanuelbeziat.vscode-great-icons)
+  icon pack extension shows a database icon for `.prql` files. (@EmmanuelBeziat)
+- [Tokei](https://github.com/XAMPPRocky/tokei), a source lines of code counter
+  now has support for `.prql` files. (@vanillajonathan)
+
+**Internal changes**:
+
+**New Contributors**:
+
+## 0.11.4 — 2024-02-25
+
+0.11.4 is a hotfix release, fixing a CI issue that caused the CLI binaries to be
+built without the `cli` feature.
+
+## 0.11.3 — 2024-02-10
+
+0.11.3 is a very small release, mostly a rename of the Python bindings.
+
+The release has 13 commits from 4 contributors.
+
+**Internal changes**:
+
+- As part of making our names more consistent, the Python bindings are renamed.
+  `prql-python` becomes a package published and importable as `prqlc`. The
+  internal Rust crate is named `prqlc-python`.
+
+## 0.11.2 — 2024-02-07
+
+0.11.2 contains lots of internal changes, lots of syntax highlighting, and the
+beginning of `lutra`, a query runner.
+
+This release has 122 commits from 9 contributors. Selected changes:
+
+**Features**:
+
+- Initial implementation of `lutra`, a query runner. (@aljazerzen, #4182, #4174,
+  #4134)
+- `prqlc fmt` works on projects with multiple files. (@max-sixty, #4028)
+
+**Fixes**:
+
+- Reduce stack memory usage (@aljazerzen, #4103)
+
+**Integrations**:
+
+- Add syntax highlight file for GtkSourceView. (@vanillajonathan, #4062)
+- Add syntax highlight file for CotEditor. (@vanillajonathan)
+- Add syntax highlight file for Sublime Text. (@vanillajonathan, #4127)
+- [sloc](https://github.com/flosse/sloc), a source lines of code counter now has
+  support for `.prql` files. (@vanillajonathan)
+
+**Internal changes**:
+
+- `prql-compiler` has been renamed to `prqlc`, and we've established a more
+  consistent naming scheme. The existing crate will still be published,
+  re-exporting `prqlc`, so no dependencies will break. A future version will add
+  a deprecation warning.
+- The `prqlc-clib` crate was renamed to `prqlc-c`, and associated artifacts were
+  renamed. We're trying to make names consistent (ideally for the final time!),
+  and have a plan to rename some other bindings. (@max-sixty, #4077)
+- Add lots of whitespace items to the lexer, in preparation for the completion
+  of `prqlc fmt` (@max-sixty, #4109, #4105)
+- Table declarations (@aljazerzen, #4126)
+
+**New Contributors**:
+
+- @kaspermarstal, with #4124
+
+## 0.11.1 — 2023-12-26
+
+0.11.1 fixes a couple of small bugs; it comes a few days after 0.11.
+
+This release has 16 commits from 6 contributors. Selected changes:
+
+**Features**:
+
+- Infer the type of array literals to be the union of types of its items.
+  (@aljazerzen, #3989)
+- `prql` module is added and the `prql_version` function is renamed to the
+  `prql.version` function. The old `prql_version` function is deprecated and
+  will be removed in the future release. (@eitsupi, #4006)
+
+**Fixes**:
+
+- Do not compile to `DISTINCT ON` when `take n` is used with `group` for the
+  targets `clickhouse`, `duckdb` and `postgres`. (@PrettyWood, #3988)
+- Fix `take` n rows for `mssql` dialect by switching from TOP to FETCH
+  (@PrettyWood, #3994)
+
+## 0.11.0 — 2023-12-19
+
+0.11.0 introduces new `date`, `text` & `math` modules with lots of standard
+functions, including a new `date.to_text` function. It contains a few bugs
+fixes, and lots of internal improvements to the compiler.
+
+This release has 119 commits from 9 contributors. Selected changes:
+
+**Language**:
+
+- _Breaking_: `group`'s `by` columns are now excluded from the partition.
+  (#3490)
+- _Breaking_: `round` is now in the `math` module and needs to be called via
+  `math.round`. (#3928)
+- _Breaking_: `lower` and `upper` are now in the `text` module and need to be
+  called via `text.lower` and `text.upper`. (#3913, #3973)
+
+**Features**:
+
+- The `std.in` function now supports a list of values (@PrettyWood, #3883)
+- Most standard mathematical functions are now supported: `abs`, `floor`,
+  `ceil`, `pi`, `exp`, `ln`, `log10`, `log`, `sqrt`, `degrees`, `radians`,
+  `cos`, `acos`, `sin`, `asin`, `tan`, `atan`, `pow` and `round`.\
+  Those functions are in the `math` module (@PrettyWood, #3909, #3916 & 3928)
+- Most standard string functions are now supported: `ltrim`, `rtrim`, `trim`,
+  `length`, `extract`, `replace`. Utility functions `starts_with`, `contains`
+  and `ends_with` are also available.\
+  Those functions are in the `text` module (@PrettyWood, #3913, #3973)
+- Formatting a date to a text is now available for Clickhouse, DuckDB, MySQL,
+  MSSQL and Postgres. A new `date` module has been added with the `to_text`
+  function (@PrettyWood, #3951, #3954 & #3955)
+
+**Fixes**:
+
+- Fix an issue with arithmetic precedence (@max-sixty, #3846)
+- `+` and `-` can be used after a cast (@PrettyWood, #3923)
+- The [Lezer](https://lezer.codemirror.net/) grammar had plenty of improvements
+  and fixes. (@vanillajonathan)
+
+**Web**:
+
+- The Playground now uses [Vite](https://vitejs.dev/). (@vanillajonathan)
+
+**Internal changes**:
+
+- Bump `prql-compiler`'s MSRV to 1.70.0 (@eitsupi, #3876)
+
+**New Contributors**:
+
+- @PrettyWood, with #3883
+
+## 0.10.1 — 2023-11-14
+
+0.10.1 is a small release containing some internal fixes of the compiler.
+
+This release has 36 commits from 7 contributors. Selected changes:
+
+**Features**:
+
+- The `std.sql.read_csv` function and the `std.sql.read_parquet` function
+  supports the `sql.glaredb` target. (@eitsupi, #3749)
+
+**Fixes**:
+
+- Fix the bug of compiling to `DISTINCT ON` when `take 1` is used with
+  `group by` for the targets `sql.clickhouse`, `sql.duckdb` and `sql.postgres`.
+  (@aljazerzen, #3792)
+
+**Integrations**:
+
+- Enable integration tests for GlareDB. (@eitsupi, #3749)
+- [trapd00r/LS_COLORS](https://github.com/trapd00r/LS_COLORS), a collection of
+  LS_COLORS definitions colorizes `.prql` files. (@vanillajonathan)
+- [vivid](https://github.com/sharkdp/vivid), a themeable LS_COLORS generator
+  colorizes `.prql` files. (@vanillajonathan)
+- [colorls](https://github.com/athityakumar/colorls), displays `.prql` files
+  with a database icon. (@vanillajonathan)
+- [Emoji File Icons](https://marketplace.visualstudio.com/items?itemName=mightbesimon.emoji-icons),
+  a VS Code extension displays `.prql` files with a database emoji icon.
+  (@vanillajonathan)
+- [eza](https://eza.rocks/), a modern ls replacement colorizes `.prql` files.
+  (@vanillajonathan)
+- [lsd](https://github.com/lsd-rs/lsd), next gen ls command displays `.prql`
+  files with a database icon. (@vanillajonathan)
+
+## 0.10.0 — 2023-10-26
+
+0.10.0 contains lots of small improvements, including support for new types of
+literal notation, support for `read_*` functions in more dialects, playground
+improvements, and a better Lezer grammar (which we're planning on using for a
+Jupyter extension).
+
+This release has 155 commits from 9 contributors. Selected changes:
 
 **Language**:
 
@@ -13,7 +225,12 @@
 - _Breaking_: The `std.sql.read_csv` function is now compiled to `read_csv` by
   default. Please set the target `sql.duckdb` to use the DuckDB's
   `read_csv_auto` function as previously. (@eitsupi, #3599)
+- _Breaking_: The `std.every` function is renamed to `std.all` (@aljazerzen,
+  #3703)
+- The `std.sql.read_csv` function and the `std.sql.read_parquet` function
+  supports the `sql.clickhouse` target. (@eitsupi, #1533)
 - Add `std.prql_version` function to return PRQL version (@hulxv, #3533)
+- A new type `anytype` is added. (@aljazerzen, #3703)
 - Add support for hex escape sequences in strings. Example `"Hello \x51"`.
   (@vanillajonathan, #3568)
 - Add support for long Unicode escape sequences. Example `"Hello \u{01F422}"`.
@@ -22,10 +239,11 @@
   `filter status == 0b1111000011110000`. (@vanillajonathan, #3661)
 - Add support for hexadecimal numerical notation. Example
   `filter status == 0xff`. (@vanillajonathan, #3654)
-
-**Fixes**:
-
-**Documentation**:
+- Add support for octal numerical notation. Example `filter status == 0o777`.
+  (@vanillajonathan, #3672)
+- New compile target `sql.glaredb` for [GlareDB](https://docs.glaredb.com/) and
+  integration tests for it (However, there is a bug in the test and it is
+  currently not running). (@universalmind303, @scsmithr, @eitsupi, #3669)
 
 **Web**:
 
@@ -35,8 +253,14 @@
 - Limit maximum height of the playground editor's error panel to avoid taking
   over whole screen (@AaronMoat, #3524)
 
+- The playground now uses [Vite](https://vitejs.dev/) (@vanillajonathan).
+
 **Integrations**:
 
+- Add a CLI command `prqlc collect` to collect a project's modules into a single
+  file (@aljazerzen, #3739)
+- Add a CLI command `prqlc debug expand-pl` to parse & and expand into PL
+  without resolving (@aljazerzen, #3739)
 - Bump `prqlc`'s MSRV to 1.70.0 (@eitsupi, #3521)
 - [Pygments](https://pygments.org/), a syntax highlighting library now has
   syntax highlighting for PRQL. (@vanillajonathan, #3564)
@@ -51,12 +275,23 @@
   has support for `.prql` files. (@AlDanial)
 - [gocloc](https://github.com/hhatto/gocloc) a source lines of code counter now
   has support for `.prql` files. (@vanillajonathan)
+- [The Quarto VS Code extension](https://marketplace.visualstudio.com/items?itemName=quarto.quarto)
+  supports editing PRQL code blocks
+  ([`prqlr`](https://prql-lang.org/book/project/bindings/r.html) is required to
+  render Quarto Markdown with PRQL code blocks). (@jjallaire)
 
-**Internal changes**:
+**Internal**:
+
+- Rename some of the internal crates, and refactored their paths in the repo.
+  (@aljazerzen, #3683).
+- Add a `justfile` for developers who prefer that above our `Taskfile.yml`
+  (@aljazerzen, #3681)
 
 **New Contributors**:
 
 - @hulxv, with #3533
+- @AaronMoat, with #3522
+- @jangorecki, with #3634
 
 ## 0.9.5 — 2023-09-16
 
@@ -415,7 +650,7 @@ This release has 17 commits from 4 contributors.
 improvements, such as integration tests with a whole range of DBs, a blog post
 on Pi day, RFCs for a type system, and more robust language bindings.
 
-There's a very small breaking change to the rust API, hence the minor version
+There's a very small breaking change to the Rust API, hence the minor version
 bump.
 
 Here's our April 2023 Update, from our
@@ -690,7 +925,7 @@ This release has 74 commits from 12 contributors. Selected changes:
 - Support double brackets in s-strings which aren't symmetric (@max-sixty,
   #1650)
 - Support Postgres's Interval syntax (@max-sixty, #1649)
-- Fixed tests for `prql-elixir` with MacOS (@kasvith, #1707)
+- Fixed tests for `prql-elixir` with macOS (@kasvith, #1707)
 
 **Documentation**:
 
@@ -1266,7 +1501,7 @@ interest and contributions! 0.2.2 has some fixes & some internal improvements:
 - More examples on homepage; e.g. `join` & `window`, lots of small docs
   improvements
 - Automated releases to homebrew (@roG0d)
-- [prql-js](https://github.com/PRQL/prql/tree/main/bindings/prql-js) is now a
+- [prql-js](https://github.com/PRQL/prql/tree/main/prqlc/bindings/js) is now a
   single package for Node, browsers & webpack (@charlie-sanders)
 - Parsing has some fixes, including `>=` and leading underscores in idents
   (@mklopets)

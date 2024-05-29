@@ -1,0 +1,33 @@
+version: "3"
+
+vars:
+  build_dir: "../../../target/python"
+  venv_dir: "../../../target/venv"
+
+tasks:
+  build:
+    desc: Build
+    vars:
+      profile: "dev"
+    cmds:
+      - cmd: |
+          maturin build \
+            --profile={{.profile}} \
+            --out={{.build_dir}}
+
+  init-venv:
+    status:
+      - test -d {{.venv_dir}}
+    cmds:
+      - python -m venv {{.venv_dir}}
+
+  test:
+    desc: A fast test used for feedback during compiler development
+    deps: [init-venv]
+    cmds:
+      - cmd: |
+          source {{.venv_dir}}/bin/activate
+          pip install .[dev]
+      - cmd: |
+          source {{.venv_dir}}/bin/activate
+          python -m pytest

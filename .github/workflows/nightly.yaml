@@ -20,8 +20,11 @@ jobs:
     # We also disable on dependabot, since dependabot doesn't have permissions
     # even when running on the main repo. Would be better if we could only run
     # when we know we have permissions. But this will do...
+    #
+    # Note also that we seem to need `== false` rather than just a `!` prefix
+    # once we combine with another expression (but not confident)
     if:
-      ${{ !github.event.pull_request.head.repo.fork && !github.actor ==
+      ${{ github.event.pull_request.head.repo.fork == false && github.actor !=
       'dependabot[bot]' }}
     permissions:
       actions: read
@@ -35,6 +38,8 @@ jobs:
       - uses: rustsec/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Only used in tests. Waiting for tiberius to publish a new release.
+          ignore: "RUSTSEC-2024-0336"
 
   cargo-bench:
     runs-on: ubuntu-latest
@@ -59,10 +64,15 @@ jobs:
 
   update-rust-toolchain:
     runs-on: ubuntu-latest
-    # See notes in `cargo-audit` for why we disable on forks and dependabot.
-    if:
-      ${{ !github.event.pull_request.head.repo.fork && !github.actor ==
-      'dependabot[bot]' }}
+    # Currently turned off, as I can't get the token to work correctly in this
+    # workflow, despite it working well in other workflows... Contributions
+    # welcome
+    # https://github.com/PRQL/prql/actions/runs/7351852156/job/20017282449#step:3:14
+    if: false
+    # # See notes in `cargo-audit` for why we disable on forks and dependabot.
+    # if:
+    #   ${{ github.event.pull_request.head.repo.fork == false && github.actor !=
+    #   'dependabot[bot]' }}
 
     # Note that this doesn't change the minimum supported version, only the
     # default to run on. The minimum is defined by Cargo.toml's metadata.msrv
@@ -84,8 +94,8 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - run: rustup override set nightly-2023-04-22
-      - uses: baptiste0928/cargo-install@v2
+      - run: rustup override set nightly-2023-11-22
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-udeps
       # Once with all targets, once without, to find anything that should be in
@@ -149,7 +159,7 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           # If you wish to specify custom queries, you can do so here or in a config file.
@@ -162,7 +172,7 @@ jobs:
       # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
       # If this step fails, then you should remove it and run the build manually (see below)
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       # ℹ️ Command-line programs to run using the OS shell.
       # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
@@ -175,7 +185,7 @@ jobs:
       #   ./location_of_script_within_repo/buildscript.sh
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
 
   nightly-release:
     # Test release workflow

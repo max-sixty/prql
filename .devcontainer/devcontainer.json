@@ -1,4 +1,4 @@
-// Dev Container for Rust, website, prql-js and prql-python
+// Dev Container for Rust, website, prql-js and prqlc-python
 {
   "image": "ghcr.io/prql/prql-devcontainer-base:latest",
   "features": {
@@ -6,7 +6,7 @@
     "ghcr.io/devcontainers/features/python:1": {},
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/eitsupi/devcontainer-features/go-task:1": {},
-    "ghcr.io/eitsupi/devcontainer-features/jq-likes:1": {
+    "ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {
       "yqVersion": "latest"
     },
     "ghcr.io/eitsupi/devcontainer-features/duckdb-cli:1": {},
@@ -31,10 +31,18 @@
       "source": "devcontainer-cargo-cache-${devcontainerId}",
       "target": "/usr/local/cargo/registry",
       "type": "volume"
+    },
+    {
+      "source": "devcontainer-cargo-target-${devcontainerId}",
+      "target": "${containerWorkspaceFolder}/target",
+      "type": "volume"
     }
   ],
   "postCreateCommand": {
-    "install-python-deps": "task install-maturin && task install-pre-commit && pre-commit install-hooks",
+    "set-ownership": "sudo chown vscode target",
+    "install-python-deps": "task install-maturin",
+    // Disabling because of the issues in #3709
+    // "install-python-deps": "task install-maturin && task install-pre-commit && pre-commit install-hooks",
     "install-npm-dependencies": "task install-npm-dependencies"
   }
 }

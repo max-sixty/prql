@@ -1,9 +1,9 @@
 # This workflow runs on tags / releases. It also runs on nightly builds without
 # publishing anything, in order to test as much of the build works as possible.
 #
-# We indicate whether it should publish, vs. just build, by checking if we're on
-# a tag. (An alternative would be to have an input which is passed in by the
-# calling workflow.)
+# We indicate whether it should publish, vs. just build, by checking whether
+# `github.event_name == 'release'` . (An alternative would be to have an input
+# which is passed in by the calling workflow.)
 
 name: release
 on:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PRQL_BOT_GITHUB_TOKEN }}
           script: |
@@ -43,12 +43,12 @@ jobs:
             target: x86_64-unknown-linux-musl
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: macos-latest
+          - os: macos-14
             target: aarch64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+    permissions:
+      contents: write
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
@@ -57,9 +57,56 @@ jobs:
         with:
           target: ${{ matrix.target }}
           profile: release
+          features: cli
       - name: Upload release artifact
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
+        with:
+          append_body: true
+          files: ${{ steps.build-artifact.outputs.artifact-name }}
+      - name: test the CLI works
+        # TODO: Add for Windows too (but will require unzipping rather than
+        # un-taring)
+        #
+        # Currently filtering by x86, since that's the same as those not
+        # cross-compiled. But we'll have to refine this in the future.
+        if:
+          ${{ contains(matrix.target, 'x86') && matrix.target !=
+          'x86_64-pc-windows-msvc' }}
+        run: |
+          # `prqlc` is an existing path at the root
+          mkdir -p temp_path
+          tar xzf ${{ steps.build-artifact.outputs.artifact-name }} -C temp_path
+          ./temp_path/prqlc --help
+
+  build-prqlc-c:
+    # Mostly a copy/paste of `build-prqlc`.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    permissions:
+      contents: write
+    steps:
+      - name: 📂 Checkout code
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/build-prqlc-c
+        id: build-artifact
+        with:
+          target: ${{ matrix.target }}
+          profile: release
+      - name: Upload release artifact
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
         with:
           append_body: true
           files: ${{ steps.build-artifact.outputs.artifact-name }}
@@ -79,19 +126,36 @@ jobs:
           fork-user: prql-bot
 
   build-deb-package:
-    # TODO: currently this doesn't publish it as an artifact; would be a welcome contribution
-    # to add that (and eventually as a release asset)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+    needs: build-prqlc
+    permissions:
+      contents: write
     steps:
-      - name: 📂 Checkout code
-        uses: actions/checkout@v4
-      - name: 👷 Build prql-compiler
-        run: cargo build --release
+      - uses: actions/download-artifact@v4
+        with:
+          name: prqlc-${{ matrix.target }}-release
       - name: Copy files into .deb package
         run: |
+          tar -xf prqlc-*.tar.gz
           mkdir -p .debpkg/usr/bin
-          cp target/release/prqlc .debpkg/usr/bin/prqlc
+          mv prqlc .debpkg/usr/bin/prqlc
           chmod +x .debpkg/usr/bin/prqlc
+      - name: Set arch variable
+        run: |
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]; then
+            echo "package_arch=arm64" >> "$GITHUB_ENV"
+          elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]; then
+            echo "package_arch=amd64" >> "$GITHUB_ENV"
+          else
+            echo "::error::Unknown architecture: ${{ matrix.target }}"
+            exit 1
+          fi
       - name: 📦 Build .deb package
         uses: jiro4989/build-deb-action@v3
         with:
@@ -99,26 +163,53 @@ jobs:
           package_root: .debpkg
           maintainer: The PRQL Project
           version: ${{ github.event_name == 'release' && github.ref_name || 0 }}
+          arch: ${{ env.package_arch }}
           desc: >
             prqlc is the CLI for the PRQL compiler. It compiles PRQL to SQL, and
             offers various diagnostics.
 
             PRQL is a modern language for transforming data — a simple,
             powerful, pipelined SQL replacement.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.target }}
+          path: ./*.deb
+      - name: Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: prqlc_*.deb
 
   build-rpm-package:
-    # TODO: This doesn't publish the rpm yet, that would be a welcome follow-up (even as a CI artifact)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          #- aarch64-unknown-linux-musl # https://github.com/jiro4989/build-rpm-action/issues/6
+    needs: build-prqlc
+    permissions:
+      contents: write
     steps:
-      - name: 📂 Checkout code
-        uses: actions/checkout@v4
-      - name: 👷 Build prqlc
-        run: cargo build --bin prqlc --release
+      - uses: actions/download-artifact@v4
+        with:
+          name: prqlc-${{ matrix.target }}-release
       - name: Copy files into .rpm package
         run: |
+          tar -xf prqlc-*.tar.gz
           mkdir -p .rpmpkg/usr/bin
-          cp target/release/prqlc .rpmpkg/usr/bin/prqlc
+          mv prqlc .rpmpkg/usr/bin/prqlc
           chmod +x .rpmpkg/usr/bin/prqlc
+      - name: Set variables
+        run: |
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]; then
+            echo "package_arch=aarch64" >> "$GITHUB_ENV"
+          elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]; then
+            echo "package_arch=x86_64" >> "$GITHUB_ENV"
+          else
+            echo "::error::Unknown architecture: ${{ matrix.target }}"
+          fi
       - name: 📦 Build .rpm package
         uses: jiro4989/build-rpm-action@v2
         with:
@@ -128,6 +219,7 @@ jobs:
           maintainer: The PRQL Project
           vendor: The PRQL Project
           version: ${{ github.event_name == 'release' && github.ref_name || 0 }}
+          arch: ${{ env.package_arch }}
           desc: >
             prqlc is the CLI for the PRQL compiler. It compiles PRQL to SQL, and
             offers various diagnostics.
@@ -135,6 +227,18 @@ jobs:
             PRQL is a modern language for transforming data — a simple,
             powerful, pipelined SQL replacement.
           license: Apache-2.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifact-rpm
+          path: |
+            ./*.rpm
+            !./*-debuginfo-*.rpm
+      - run: rm prqlc-debuginfo-*.rpm
+      - name: Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: prqlc-*.rpm
 
   build-and-publish-snap:
     runs-on: ubuntu-latest
@@ -143,7 +247,7 @@ jobs:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
       - name: Move Snap to project root directory
-        run: cp -r packages/snap/ .
+        run: cp -r prqlc/packages/snap/ .
       - name: 📦 Build Snap
         id: build
         uses: snapcore/action-build@v1
@@ -162,31 +266,57 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
+        package:
+          - prqlc-python
+          - lutra-python
+        target: [x86_64]
         include:
+          # MacOS with universal builds
+          - os: macos-14
+            package: prqlc-python
+            target: universal2-apple-darwin
+          - os: macos-14
+            package: lutra-python
+            target: universal2-apple-darwin
+          # Also produce more targets for ubuntu:
           - os: ubuntu-latest
-            target: x86_64
-          - os: ubuntu-latest
+            package: prqlc-python
             target: aarch64
           - os: ubuntu-latest
+            package: prqlc-python
+            target: source
+          - os: ubuntu-latest
+            package: lutra-python
+            target: aarch64
+          - os: ubuntu-latest
+            package: lutra-python
             target: source
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: ./.github/actions/build-prql-python
+      - uses: ./.github/actions/build-python
         with:
           target: ${{ matrix.target }}
+          package: ${{ matrix.package }}
+          profile: release
 
-  publish-prql-python:
+  publish-python:
     runs-on: ubuntu-latest
     needs: [build-python-wheels]
     if: github.event_name == 'release'
+    strategy:
+      matrix:
+        package:
+          - prqlc-python
+          - lutra-python
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          # `*` covers target & OS
+          pattern: ${{ matrix.package }}-*-release
       - name: Publish to PyPI
-        uses: messense/maturin-action@v1
+        uses: PyO3/maturin-action@v1
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
@@ -198,20 +328,25 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: wasm-pack
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
+          node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
+
+      # This is only required in order to have `cross-env` installed, since `npx
+      # cross-env` doesn't seem to work in CI (https://github.com/PRQL/prql/pull/3728)
+      - run: npm install
+        working-directory: prqlc/bindings/js/
 
       - run:
           npm publish ${{ (github.event_name != 'release') && '--dry-run' || ''
           }}
-        working-directory: bindings/prql-js/
+        working-directory: prqlc/bindings/js/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -220,15 +355,15 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-release
-      # Currently, we can only check prql-ast which is not dependent other local crates with --dry-run.
+      # Currently, we can only check prqlc-ast which is not dependent other local crates with --dry-run.
       # https://github.com/crate-ci/cargo-release/issues/691
       # --no-verify is required to prevent build.
       - run:
           cargo release publish --no-confirm ${{ github.event_name == 'release'
-          && '--execute' || '--no-verify --package prql-ast'}}
+          && '--execute' || '--no-verify --package prqlc-ast'}}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -263,4 +398,6 @@ jobs:
     if: github.event_name == 'release'
     uses: ./.github/workflows/build-devcontainer.yaml
     with:
+      # TOOD: I think having this as a bool is OK, but check a recent release
+      # from 0.10.0 and confirm that it is indeed pushing the image.
       push: true

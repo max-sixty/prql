@@ -1,27 +1,39 @@
 [workspace]
 members = [
-  "crates/*",
-  "bindings/prql-elixir/native/prql",
-  "bindings/prql-java",
-  "bindings/prql-js",
-  "bindings/prql-lib",
-  "bindings/prql-python",
+  "prqlc/bindings/elixir/native/prql",
+  "prqlc/bindings/java",
+  "prqlc/bindings/js",
+  "prqlc/bindings/prqlc-c",
+  "prqlc/bindings/prqlc-python",
+  "prqlc/prql-compiler-macros",
+  "prqlc/prql-compiler",
+  "prqlc/prqlc-ast",
+  "prqlc/prqlc-parser",
+  "prqlc/prqlc",
+  "prqlc/prqlc/examples/compile-files", # An example
+  "lutra/lutra",
+  "lutra/bindings/python",
   "web/book", # The book / docs
-  "crates/prql-compiler/examples/compile-files", # An example
 ]
 resolver = "2"
 
 [workspace.package]
+authors = ["PRQL Developers"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/PRQL/prql"
-rust-version = "1.65.0"
-version = "0.10.0"
-authors = ["PRQL Developers"]
+rust-version = "1.70.0"
+version = "0.11.5"
 
-[profile.release.package.prql-js]
-# Optimize for small code size.
+[profile.release]
+# Optimize for binary size in releases of all crates,
+# since compiler is fast enough as it is (for now).
 opt-level = "s"
+
+[profile.release.package.prqlc-c]
+# Remove some debug symbols (linker needs some of them)
+strip = "debuginfo"
+
 # Insta runs faster this way, ref https://insta.rs/docs/quickstart/
 [profile.dev.package.insta]
 opt-level = 3
@@ -31,3 +43,13 @@ opt-level = 3
 [workspace.metadata.release]
 allow-branch = ["*"]
 consolidate-commits = true
+
+[workspace.dependencies]
+anyhow = "1.0.86"
+insta = {version = "1.39.0", features = ["colors", "glob", "yaml"]}
+insta-cmd = "0.6.0"
+itertools = "0.12.0"
+log = "0.4.21"
+serde = {version = "1.0.203", features = ["derive"]}
+serde_json = "1.0.117"
+serde_yaml = {version = "0.9.34"}

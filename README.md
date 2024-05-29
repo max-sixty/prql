@@ -35,7 +35,7 @@ aggregate {                                   # `aggregate` reduces each column 
 }
 ```
 
-Here's a fuller example of the language;
+Here's a fuller example of the language:
 
 ```elm
 from employees
@@ -62,7 +62,7 @@ For more on the language, more examples & comparisons with SQL, visit
 [prql-lang.org][prql website]. To experiment with PRQL in the browser, check out
 [PRQL Playground][prql playground].
 
-## Current Status - October 2023
+## Current Status - April 2024
 
 PRQL is being actively developed by a growing community. It's ready to use by
 the intrepid, either with our supported integrations, or within your own tools,
@@ -71,23 +71,18 @@ using one of our supported language bindings.
 PRQL still has some bugs and some missing features, and is probably only ready
 to be rolled out to non-technical teams for fairly simple queries.
 
-We released [0.9.0](https://github.com/PRQL/prql/releases/tag/0.9.0), in July,
-our biggest ever release. Here's our current
-[Roadmap](https://prql-lang.org/roadmap/).
+In particular, we're working on a new resolver, which will let us squash many
+bugs and simplify our code a lot. It'll also let us scale the language without
+scaling the complexity of the compiler.
 
-<!-- TODO: add back when we get them
-and our
-[Milestones](https://github.com/PRQL/prql/milestones). -->
-
-Our immediate focus for the code is on:
+While we work on that, we're also focusing on
 
 - Ensuring our supported features feel extremely robust; resolving any
   [priority bugs](https://github.com/PRQL/prql/issues?q=is%3Aissue+is%3Aopen+label%3Abug+label%3Apriority).
   As more folks have started using PRQL, we've had more bug reports — good news,
   but also gives us more to work on.
 - Filling remaining feature gaps, so that PRQL is possible to use for almost all
-  standard SQL queries; for example
-  [date to string functions](https://github.com/PRQL/prql/issues/366).
+  standard SQL queries.
 - Expanding our set of supported features — we've recently added experimental
   support for modules / multi-file projects, and for auto-formatting.
 
@@ -141,14 +136,11 @@ To stay in touch with PRQL:
 
 This repo is composed of:
 
-- **[prql-compiler](./crates/prql-compiler/)** — the compiler, written in rust,
-  whose main role is to compile PRQL into SQL.
-- **[prqlc](./crates/prqlc/)** — A single binary command line tool for
-  prql-compiler, written in rust.
+- **[prqlc](./prqlc/)** — the compiler, written in rust, whose main role is to
+  compile PRQL into SQL. Also contains the CLI and bindings from various
+  languages.
 - **[web](./web/)** — our web content: the [Book][prql book],
   [Website][prql website], and [Playground][prql playground].
-- **[bindings](./bindings/)** — bindings from various languages to
-  `prql-compiler`.
 
 It also contains our testing / CI infrastructure and development tools. Check
 out our [development docs][development] for more details.

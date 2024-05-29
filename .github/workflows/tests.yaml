@@ -7,6 +7,8 @@ on:
     # Add `labeled`, so we can trigger a new run by adding a `pr-nightly`
     # label, which we then use to trigger a `nightly` run.
     types: [opened, reopened, synchronize, labeled]
+    branches:
+      - main
   push:
     branches:
       - main
@@ -38,12 +40,12 @@ jobs:
       book: ${{ steps.changes.outputs.book }}
       dotnet: ${{ steps.changes.outputs.dotnet }}
       devcontainer-push: ${{ steps.devcontainer-push.outputs.run }}
-      devcontainer-test: ${{ steps.changes.outputs.devcontainer-test }}
+      devcontainer-build: ${{ steps.devcontainer-build.outputs.run }}
       elixir: ${{ steps.changes.outputs.elixir }}
       grammars: ${{ steps.changes.outputs.grammars }}
       java: ${{ steps.changes.outputs.java }}
       js: ${{ steps.changes.outputs.js }}
-      lib: ${{ steps.changes.outputs.lib }}
+      prqlc-c: ${{ steps.changes.outputs.prqlc-c }}
       # Run tests such as rust tests for all-OSs, and bindings tests on ubuntu.
       # Somewhat a tradeoff between coverage and ensuring our CI queues stay
       # short.
@@ -61,7 +63,7 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: changes
         with:
           filters: |
@@ -69,32 +71,32 @@ jobs:
               - .github/workflows/check-links-book.yaml
               - web/book/**
             dotnet:
-              - bindings/prql-dotnet/**
-              - bindings/prql-lib/**
+              - prqlc/bindings/prql-dotnet/**
+              - prqlc/bindings/prqlc-c/**
               - .github/workflows/test-dotnet.yaml
             devcontainer-push:
               - .devcontainer/**/*Dockerfile
               - Taskfile.yml
-            devcontainer-test:
+            devcontainer-build:
               - .devcontainer/**/*Dockerfile
               - .github/workflows/build-devcontainer.yaml
               - Taskfile.yml
             grammars:
               - grammars/**
             elixir:
-              - bindings/prql-elixir/**
-              - bindings/prql-lib/**
+              - prqlc/bindings/elixir/**
+              - prqlc/bindings/prqlc-c/**
               - .github/workflows/test-elixir.yaml
             java:
-              - bindings/prql-java/**
-              - bindings/prql-lib/**
+              - prqlc/bindings/java/**
+              - prqlc/bindings/prqlc-c/**
               - .github/workflows/test-java.yaml
             js:
-              - bindings/prql-js/**
+              - prqlc/bindings/js/**
               - .github/workflows/test-js.yaml
-            lib:
-              - bindings/prql-lib/**
-              - .github/workflows/test-lib.yaml
+            prqlc-c:
+              - prqlc/bindings/prqlc-c/**
+              - .github/workflows/test-prqlc-c.yaml
             main:
               - "**/Cargo.*"
               - .github/**
@@ -105,15 +107,15 @@ jobs:
               - rust-toolchain.toml
               - .cargo/**
             php:
-              - bindings/prql-php/**
-              - bindings/prql-lib/**
+              - prqlc/bindings/php/**
+              - prqlc/bindings/prqlc-c/**
               - .github/workflows/test-php.yaml
             python:
-              - bindings/prql-python/**
+              - prqlc/bindings/prqlc-python/**
               - .github/workflows/test-python.yaml
             rust:
               - "**/*.rs"
-              - crates/**
+              - prqlc/**
               - web/book/**
               - .github/workflows/test-rust.yaml
             taskfile:
@@ -123,6 +125,9 @@ jobs:
               - ".github/workflows/build-web.yaml"
               - "**.md"
 
+      # We put a few of the more complex rules as steps here, rather than having
+      # them inline. There's no strict delineation between logic here vs. inline.
+
       - id: nightly
         # TODO: actionlint annoyingly blocks this — try and find a way of getting
         # it back without too much trouble...
@@ -130,16 +135,16 @@ jobs:
         run:
           echo "run=${{ steps.changes.outputs.nightly == 'true' ||
           contains(github.event.pull_request.labels.*.name, 'pr-nightly') ||
-          github.event.schedule }}" >>"$GITHUB_OUTPUT"
+          github.event_name == 'schedule' }}" >>"$GITHUB_OUTPUT"
 
       - id: nightly-schedule
         run:
-          echo "run=${{ github.event.schedule == 'true' }}" >>"$GITHUB_OUTPUT"
+          echo "run=${{ github.event_name == 'schedule' }}" >>"$GITHUB_OUTPUT"
 
       - id: main
         run:
           echo "run=${{ steps.changes.outputs.main == 'true' || github.ref ==
-          'refs/heads/main' || steps.nightly.outputs.run == 'true'  }}" >>
+          'refs/heads/main' || steps.nightly.outputs.run == 'true' }}" >>
           "$GITHUB_OUTPUT"
 
       - id: devcontainer-push
@@ -148,6 +153,13 @@ jobs:
         run:
           echo "run=${{ steps.changes.outputs.devcontainer-push == 'true' &&
           github.ref == 'refs/heads/main' && github.event_name == 'push' }}" >>
+          "$GITHUB_OUTPUT"
+
+      - id: devcontainer-build
+        run:
+          echo "run=${{ steps.devcontainer-push.outputs.run == 'true' ||
+          steps.changes.outputs.devcontainer-build == 'true' ||
+          steps.changes.outputs.nightly-schedule == 'true' }}" >>
           "$GITHUB_OUTPUT"
 
   test-rust:
@@ -159,15 +171,14 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            features: test-dbs-external
-          # Only run wasm on ubuntu, given it's the same rust target. (There is a
-          # possibility of having a failure on just one platform, but it's quite
-          # unlikely. If we do observe this, we can expand, or introduce a
-          # `test-actually-all.yaml` which accounts for these corner cases without
-          # using runners & cache space)
+            features: default,test-dbs-external
+          # Only run wasm on ubuntu, given it's the same rust target. (There is
+          # a possibility of having a failure on just one platform, but it's
+          # quite unlikely. If we do observe this, we can add those tests them
+          # to nightly.
           - target: wasm32-unknown-unknown
             os: ubuntu-latest
-            features: ""
+            features: default
     with:
       os: ubuntu-latest
       target: ${{ matrix.target }}
@@ -188,7 +199,7 @@ jobs:
       # 20 workflow limit.
       oss:
         ${{ (needs.rules.outputs.python == 'true' || needs.rules.outputs.nightly
-        == 'true') && '["ubuntu-latest", "macos-latest", "windows-latest"]' ||
+        == 'true') && '["ubuntu-latest", "macos-14", "windows-latest"]' ||
         '["ubuntu-latest"]' }}
 
   test-js:
@@ -199,7 +210,7 @@ jobs:
       # Only run on ubuntu unless there's a lang-specific change or we're running nightly.
       oss:
         ${{ (needs.rules.outputs.js == 'true' || needs.rules.outputs.nightly ==
-        'true') && '["ubuntu-latest", "macos-latest", "windows-latest"]' ||
+        'true') && '["ubuntu-latest", "macos-14", "windows-latest"]' ||
         '["ubuntu-latest"]' }}
 
   test-dotnet:
@@ -221,8 +232,7 @@ jobs:
       # Currently we never run windows
       oss:
         ${{ (needs.rules.outputs.java == 'true' || needs.rules.outputs.nightly
-        == 'true') && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]'
-        }}
+        == 'true') && '["ubuntu-latest", "macos-14"]' || '["ubuntu-latest"]' }}
 
   test-elixir:
     needs: rules
@@ -236,10 +246,12 @@ jobs:
         == 'true') && '["ubuntu-latest", "windows-latest"]' ||
         '["ubuntu-latest"]' }}
 
-  test-lib:
+  test-prqlc-c:
     needs: rules
-    if: needs.rules.outputs.lib == 'true' || needs.rules.outputs.main == 'true'
-    uses: ./.github/workflows/test-lib.yaml
+    if:
+      needs.rules.outputs.prqlc-c == 'true' || needs.rules.outputs.main ==
+      'true'
+    uses: ./.github/workflows/test-prqlc-c.yaml
 
   test-taskfile:
     needs: rules
@@ -248,11 +260,11 @@ jobs:
       # don't want to have to run it on, for example, every dependency change.
       needs.rules.outputs.taskfile == 'true' ||
       needs.rules.outputs.nightly-schedule == 'true'
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - run: ./.github/set_version.sh
+      - run: ./.github/workflows/scripts/set_version.sh
       - name: 💰 Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -260,13 +272,13 @@ jobs:
           # The mac rust cache key. It's not _that_ useful since this will build
           # much more, but it's better than nothing. We can't have our own
           # cache, since we're out of cache space and this workflow takes 1.5GB.
-          shared-key: rust-x86_64-apple-darwin-test-dbs
+          shared-key: rust-x86_64-apple-darwin
           save-if: false
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Install Task
-        uses: arduino/setup-task@v1
+        uses: arduino/setup-task@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       # Required because of https://github.com/cargo-bins/cargo-binstall/issues/1254
@@ -284,20 +296,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            features: test-dbs
+          - os: macos-14
+            target: aarch64-apple-darwin
+            features: default,test-dbs
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             # We'd like to reenable integration tests on Windows, ref https://github.com/wangfenjin/duckdb-rs/issues/179.
+            features: default
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            # One test with no features
             features: ""
-          # Note that we run wasm in the standard `test-rust` job.
 
           # TODO: potentially enable these
           # - os: ubuntu-latest
           #   target: aarch64-unknown-linux-musl
-          # - os: macos-latest
-          #   target: aarch64-apple-darwin
 
     uses: ./.github/workflows/test-rust.yaml
     with:
@@ -357,14 +370,14 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: mdbook
       # the link checker
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: hyperlink
-      - run: ./.github/set_version.sh
+      - run: ./.github/workflows/scripts/set_version.sh
       - name: Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -381,30 +394,48 @@ jobs:
   measure-code-cov:
     runs-on: ubuntu-latest
     needs: rules
-    # TODO: Would be great to have this running on every PR, but
-    # waiting on https://github.com/PRQL/prql/issues/2870. We could enable it
-    # but not block merging on it?
-    if: needs.rules.outputs.main == 'true'
+    # Annoyingly, dependabot doesn't get the `${{ secrets.CODECOV_TOKEN }}`
+    # secret, but codecov expects one given it's not a forked PR. So to avoid
+    # failing, we skip this. (Ideally dependabot would either come from a fork
+    # and not be this special case...). If codecov.io either recognizes this
+    # case or stops requiring tokens while remaining reliable, we can remove
+    # this exception.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: baptiste0928/cargo-install@v2
+      - run: ./.github/workflows/scripts/set_version.sh
+      - uses: baptiste0928/cargo-install@v3
         with:
-          crate: cargo-tarpaulin
-      - run: ./.github/set_version.sh
-        shell: bash
+          crate: cargo-llvm-cov
       - name: 💰 Cache
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           prefix-key: ${{ env.version }}
       - run:
-          cargo tarpaulin --skip-clean --all-targets --features=test-dbs
-          --out=xml
+          # We considered moving to using `codecov.json` with
+          # `--codecov --output-path=codecov.json` since that has branch & region
+          # coverage. But the coverage is lower, in a way that doesn't represent
+          # what is useful coverage
+          cargo llvm-cov --cobertura --output-path=cobertura.xml
+          --no-default-features --features=default,test-dbs
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          files: cobertura.xml
+          fail_ci_if_error: true
+          # This isn't strictly necessary, but as discussed in
+          # https://community.codecov.com/t/upload-issues-unable-to-locate-build-via-github-actions-api/3954,
+          # without this the upload has a fairly high failure rate. That also
+          # suggests copying the token into the repo in plain text to ensure it
+          # doesn't also fail on forks. The only thing the token allows is
+          # uploading coverage, so there's no material security risk. (The token
+          # is at https://app.codecov.io/gh/PRQL/prql/settings if we need to do
+          # that.)
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
           path: cobertura.xml
@@ -434,32 +465,19 @@ jobs:
         working-directory: grammars/prql-lezer/
         run: bun run test
 
-  push-devcontainer:
+  build-devcontainer:
     needs: rules
-    if: needs.rules.outputs.devcontainer-push == 'true'
+    if: needs.rules.outputs.devcontainer-build == 'true'
     uses: ./.github/workflows/build-devcontainer.yaml
+    # One problem with this setup is that if another commit is merged to main,
+    # this workflow will cancel existing jobs, and so this won't get pushed. We
+    # have another workflow which runs on each release, so the image should get
+    # pushed eventually. The alternative is to have a separate workflow, but
+    # then we can't use the nice logic of when to run the workflow that we've
+    # built up here.
     with:
-      push: true
-
-  test-devcontainer:
-    needs: rules
-    if:
-      ${{ needs.rules.outputs.devcontainer-test == 'true' ||
-      needs.rules.outputs.nightly-schedule == 'true' }}
-    uses: ./.github/workflows/build-devcontainer.yaml
-    with:
-      push: false
-
-  time-compilation:
-    runs-on: ubuntu-latest
-    needs: rules
-    if: needs.rules.outputs.nightly == 'true'
-    steps:
-      - name: 📂 Checkout code
-        uses: actions/checkout@v4
-      - uses: ./.github/actions/time-compilation
-        with:
-          use_cache: true
+      # This needs to compare to the string `'true'`, because of GHA awkwardness
+      push: ${{ needs.rules.outputs.devcontainer-push == 'true' }}
 
   test-msrv:
     runs-on: ubuntu-latest
@@ -468,19 +486,39 @@ jobs:
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-msrv
         # Note this currently uses a manually maintained key in
-        # `prql-compiler/Cargo.toml` (and `prqlc/Cargo.toml` below), because of
+        # `prqlc/prqlc/Cargo.toml`, because of
         # https://github.com/foresterre/cargo-msrv/issues/590
-      - name: Verify minimum rust version — prql-compiler
-        # Ideally we'd check all crates, ref https://github.com/foresterre/cargo-msrv/issues/295
-        working-directory: crates/prql-compiler
-        run: cargo msrv verify
       - name: Verify minimum rust version — prqlc
-        working-directory: crates/prqlc
+        # Ideally we'd check all crates, ref https://github.com/foresterre/cargo-msrv/issues/295
+        working-directory: prqlc/prqlc
         run: cargo msrv verify
+
+  test-deps-min-versions:
+    runs-on: ubuntu-latest
+    needs: rules
+    if: needs.rules.outputs.nightly == 'true'
+    steps:
+      - name: 📂 Checkout code
+        uses: actions/checkout@v4
+      - run: rustup override set nightly-2023-11-22
+      - uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-hack
+      - uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-minimal-versions
+      - run: ./.github/workflows/scripts/set_version.sh
+      - name: 💰 Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          prefix-key: ${{ env.version }}
+      - name: Verify minimum rust version
+        run: cargo minimal-versions test --direct
 
   check-ok-to-merge:
     # This indicates to GitHub whether everything in this workflow has passed
@@ -488,21 +526,22 @@ jobs:
     # tests) will pass when a task is skipped.
     if: always()
     needs:
+      - build-devcontainer
       - build-web
       - check-links-book
       - check-links-markdown
       - lint-megalinter
       - nightly
       - publish-web
-      - test-msrv
-      - test-devcontainer
+      - test-deps-min-versions
       - test-dotnet
       - test-elixir
+      - test-grammars
       - test-java
       - test-js
-      - test-grammars
-      - test-lib
+      - test-msrv
       - test-php
+      - test-prqlc-c
       - test-python
       - test-rust
       - test-rust-main
@@ -532,25 +571,28 @@ jobs:
           # https://github.com/re-actors/alls-green/issues/23
           allowed-skips: |
             [
+              "build-devcontainer",
               "build-web",
               "check-links-book",
               "check-links-markdown",
               "lint-megalinter",
+              "measure-code-cov",
               "nightly",
               "publish-web",
-              "test-msrv",
-              "test-devcontainer",
+              "test-deps-min-versions",
               "test-dotnet",
               "test-elixir",
+              "test-grammars",
               "test-java",
               "test-js",
-              "test-lib",
-              "test-grammars",
+              "test-msrv",
               "test-php",
+              "test-prqlc-c",
               "test-python",
               "test-rust",
               "test-rust-main",
-              "test-taskfile"
+              "test-taskfile",
+              "time-compilation"
             ]
 
   build-prqlc:
@@ -564,25 +606,57 @@ jobs:
           # Match the features with the available caches from tests
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            features: ""
+            features: default
           # TODO: Until we have tests for these, we don't have a cache for them.
           # If we can add tests, then re-enable them. They run on `release.yaml`
           # regardless.
           #
           # - os: ubuntu-latest
           #   target: aarch64-unknown-linux-musl
-          # - os: macos-latest
-          #   target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            features: test-dbs
+          - os: macos-14
+            target: aarch64-apple-darwin
+            features: default,test-dbs
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            features: ""
+            features: default
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
       - uses: ./.github/actions/build-prqlc
+        with:
+          target: ${{ matrix.target }}
+          profile: dev
+          features: ${{ matrix.features }}
+    # These are the same env variables as in `test-rust.yaml`. Custom actions
+    # don't allow setting env variables for the whole job, so we do it here.
+    env:
+      CARGO_TERM_COLOR: always
+      CLICOLOR_FORCE: 1
+      RUSTFLAGS: "-C debuginfo=0"
+      RUSTDOCFLAGS: "-Dwarnings"
+
+  build-prqlc-c:
+    runs-on: ${{ matrix.os }}
+    needs: rules
+    if: needs.rules.outputs.main == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Match the features with the available caches from tests
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            features: default
+          - os: macos-14
+            target: aarch64-apple-darwin
+            features: default,test-dbs
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            features: default
+    steps:
+      - name: 📂 Checkout code
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/build-prqlc-c
         with:
           target: ${{ matrix.target }}
           profile: dev
@@ -600,9 +674,10 @@ jobs:
     needs:
       - check-ok-to-merge
     if:
-      # We care that it's on a schedule as well as it running on nightly — we
+      # We check that it's on a schedule as well as it running on nightly — we
       # don't want to trigger just on a `pr-nightly` label
-      always() && github.event.schedule && contains(needs.*.result, 'failure')
+      always() && (github.event_name == 'schedule') && contains(needs.*.result,
+      'failure')
     permissions:
       contents: read
       issues: write

@@ -8,15 +8,15 @@ standard library. If we find ourselves using them for something frequently,
 raise an issue and we'll add it to the stdlib.
 
 Here's the source of the current
-[PRQL `std`](https://github.com/PRQL/prql/blob/main/crates/prql-compiler/src/semantic/std.prql):
+[PRQL `std`](https://github.com/PRQL/prql/blob/main/prqlc/prqlc/src/semantic/std.prql):
 
 ```admonish note
 PRQL 0.9.0 has started supporting different DB implementations for standard library functions.
-The source is the [`std.sql`](https://github.com/PRQL/prql/blob/main/crates/prql-compiler/src/sql/std.sql.prql).
+The source is the [`std.sql`](https://github.com/PRQL/prql/blob/main/prqlc/prqlc/src/sql/std.sql.prql).
 ```
 
 ```prql no-eval
-{{#include ../../../../../crates/prql-compiler/src/semantic/std.prql}}
+{{#include ../../../../../prqlc/prqlc/src/semantic/std.prql}}
 ```
 
 And a couple of examples:
@@ -25,7 +25,7 @@ And a couple of examples:
 from employees
 derive {
   gross_salary = (salary + payroll_tax | as int),
-  gross_salary_rounded = (gross_salary | round 0),
+  gross_salary_rounded = (gross_salary | math.round 0),
   time = s"NOW()",  # an s-string, given no `now` function exists in PRQL
 }
 ```
