@@ -8,8 +8,8 @@ import nox
 from nox.sessions import Session
 
 VERSIONS: List[str] = [
-    "3.8",
-    "3.11",
+    "3.10",
+    "3.12",
 ]
 
 nox.options.stop_on_first_error = False
@@ -24,7 +24,7 @@ def _install_prqlc(session: Session) -> None:
         # plain pip of doing that (https://github.com/pypa/pip/issues/11440).
         # "--no-index",
         f"--find-links={Path('..', '..', '..', 'target', 'python')}",
-        "prqlc[test]",
+        "prqlc[dev]",
     )
 
 

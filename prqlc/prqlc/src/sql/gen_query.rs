@@ -416,6 +416,7 @@ fn translate_cte(cte: Cte, ctx: &mut Context) -> Result<(sql_ast::Cte, bool)> {
         alias: simple_table_alias(cte_name),
         query: Box::new(query),
         from: None,
+        materialized: None,
     };
     Ok((cte, recursive))
 }
@@ -440,6 +441,15 @@ fn translate_relation_literal(data: RelationLiteral, ctx: &Context) -> Result<sq
         }));
 
         selects.push(body)
+    }
+
+    if selects.is_empty() {
+        return Err(
+            Error::new_simple("No rows provided for `from_text`".to_string()).push_hint(
+                "add a newline, then a row of data following the column. If using \
+                the json format, ensure `data` isn't empty",
+            ),
+        );
     }
 
     let mut body = selects.remove(0);
@@ -558,6 +568,9 @@ fn default_select() -> Select {
         having: None,
         named_window: vec![],
         qualify: None,
+        value_table_mode: None,
+        window_before_qualify: false,
+        connect_by: None,
     }
 }
 
@@ -617,7 +630,7 @@ mod test {
     #[test]
     fn test_variable_after_aggregate() {
         let query = &r#"
-        from db.employees
+        from employees
         group {title, emp_no} (
             aggregate {emp_salary = average salary}
         )
@@ -661,7 +674,7 @@ mod test {
         // be (must be) removed.
 
         let query = &r#"
-        from db.employees
+        from employees
         derive {global_rank = rank country}
         filter country == "USA"
         derive {rank = rank country}
@@ -691,7 +704,7 @@ mod test {
     fn test_filter_windowed() {
         // #806
         let query = &r#"
-        from db.tbl1
+        from tbl1
         filter (average bar) > 3
         "#;
 

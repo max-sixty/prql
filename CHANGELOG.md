@@ -9,39 +9,43 @@
 - Initial implementation of an experimental documentation generator that
   generates Markdown documentation from `.prql` files. (@vanillajonathan,
   #4152).
-
-- _Breaking_: References to database tables now require an explicit `db.`
-  prefix. Example:
-  ```prql no-eval
-  from db.my_table
-  join db.another_table (==some_id)
-  ```
+- Add `prqlc lex` command to the CLI (@max-sixty)
+- Join `side` parameter can take a reference that resolves to a literal (note:
+  this is an experimental feature which may change in the future) (@kgutwin,
+  #4499)
 
 **Fixes**:
+
+- Support expressions on left hand side of `std.in` operator. (@kgutwin, #4498)
 
 **Documentation**:
 
 **Web**:
 
-- The `browser` dist files are now built with `wasm-pack`'s `web` target.
-  As a result, they should be usable as ES Modules, through JS CDNs, and
-  for example with Observable Framework (@srenatus, #4274).
+- The `browser` dist files are now built with `wasm-pack`'s `web` target. As a
+  result, they should be usable as ES Modules, through JS CDNs, and for example
+  with Observable Framework (@srenatus, #4274).
 
 **Integrations**:
 
 - The syntax highlighter package for Sublime Text is now
   [published](https://packagecontrol.io/packages/PRQL) (@vanillajonathan).
+- The
+  [VSCode Great Icons](https://marketplace.visualstudio.com/items?itemName=emmanuelbeziat.vscode-great-icons)
+  icon pack extension shows a database icon for `.prql` files. (@EmmanuelBeziat)
+- [Tokei](https://github.com/XAMPPRocky/tokei), a source lines of code counter
+  now has support for `.prql` files. (@vanillajonathan)
 
 **Internal changes**:
 
 **New Contributors**:
 
-## 0.11.4 — 2023-02-25
+## 0.11.4 — 2024-02-25
 
 0.11.4 is a hotfix release, fixing a CI issue that caused the CLI binaries to be
 built without the `cli` feature.
 
-## 0.11.3 — 2023-02-10
+## 0.11.3 — 2024-02-10
 
 0.11.3 is a very small release, mostly a rename of the Python bindings.
 
@@ -53,7 +57,7 @@ The release has 13 commits from 4 contributors.
   `prql-python` becomes a package published and importable as `prqlc`. The
   internal Rust crate is named `prqlc-python`.
 
-## 0.11.2 — 2023-02-07
+## 0.11.2 — 2024-02-07
 
 0.11.2 contains lots of internal changes, lots of syntax highlighting, and the
 beginning of `lutra`, a query runner.

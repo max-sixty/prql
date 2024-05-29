@@ -60,8 +60,8 @@ pub fn compile(query: RelationalQuery, options: &Options) -> Result<String> {
 /// This module gives access to internal machinery that gives no stability guarantees.
 pub mod internal {
     use super::*;
-    use crate::ir::rq::{RelationalQuery, Transform};
-    use crate::{Error, Result};
+    use crate::ir::rq::Transform;
+    use crate::Error;
 
     pub use super::srq::ast::SqlTransform;
 
@@ -165,7 +165,7 @@ mod test {
 
     #[test]
     fn test_end_with_new_line() {
-        let sql = compile("from db.a", &Options::default().no_signature()).unwrap();
+        let sql = compile("from a", &Options::default().no_signature()).unwrap();
         assert_eq!(sql, "SELECT\n  *\nFROM\n  a\n")
     }
 }

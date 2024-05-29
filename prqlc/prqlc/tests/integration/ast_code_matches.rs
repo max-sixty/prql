@@ -17,19 +17,41 @@ fn test_expr_ast_code_matches() {
     -#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     +#[derive(Clone, PartialEq, Serialize, Deserialize)]
     @@ .. @@
+    -    Ident(String),
+    -    Indirection {
+    -        base: Box<Expr>,
+    -        field: IndirectionKind,
+    +    Ident(Ident),
+    +    All {
+    +        within: Box<Expr>,
+    +        except: Box<Expr>,
+    @@ .. @@
+    -    #[cfg_attr(
+    -        feature = "serde_yaml",
+    -        serde(with = "serde_yaml::with::singleton_map")
+    -    )]
+    @@ .. @@
     -    Pipeline(Pipeline),
     @@ .. @@
     -    Range(Range),
     -    Binary(BinaryExpr),
     -    Unary(UnaryExpr),
     @@ .. @@
+    -}
+    -
+    -#[derive(Debug, EnumAsInner, PartialEq, Clone, Serialize, Deserialize)]
+    -pub enum IndirectionKind {
+    -    Name(String),
+    -    Position(i64),
+    -    Star,
+    -}
+    -
     -#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     -pub struct BinaryExpr {
     -    pub left: Box<Expr>,
     -    pub op: BinOp,
     -    pub right: Box<Expr>,
-    -}
-    -
+    @@ .. @@
     -#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     -pub struct UnaryExpr {
     -    pub op: UnOp,
@@ -37,8 +59,6 @@ fn test_expr_ast_code_matches() {
     -}
     -
     @@ .. @@
-    -}
-    -
     -#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     -pub struct GenericTypeParam {
     -    /// Assigned name of this generic type argument.
@@ -48,7 +68,8 @@ fn test_expr_ast_code_matches() {
     -    /// For a given instance of this function, the argument must be
     -    /// exactly one of types in the domain.
     -    pub domain: Vec<Ty>,
-    @@ .. @@
+    -}
+    -
     -/// A value and a series of functions that are to be applied to that value one after another.
     -#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     -pub struct Pipeline {

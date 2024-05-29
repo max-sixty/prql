@@ -6,10 +6,9 @@ use std::iter::zip;
 
 use crate::ir::decl::{Decl, DeclKind, Module};
 use crate::ir::generic::{SortDirection, WindowKind};
-use crate::ir::pl::PlFold;
 use crate::ir::pl::*;
 
-use crate::ast::{TupleField, Ty, TyKind};
+use crate::ast::{Ty, TyKind, TyTupleField};
 use crate::semantic::ast_expand::{restrict_null_literal, try_restrict_range};
 use crate::semantic::resolver::functions::expr_of_func;
 use crate::semantic::{write_pl, NS_PARAM, NS_THIS};
@@ -102,20 +101,42 @@ impl Resolver<'_> {
 
                 let side = {
                     let span = side.span;
-                    let ident = side.try_cast(ExprKind::into_ident, Some("side"), "ident")?;
+                    let ident =
+                        side.clone()
+                            .try_cast(ExprKind::into_ident, Some("side"), "ident")?;
+
+                    // first try to match the raw ident string as a bare word
                     match ident.to_string().as_str() {
                         "inner" => JoinSide::Inner,
                         "left" => JoinSide::Left,
                         "right" => JoinSide::Right,
                         "full" => JoinSide::Full,
 
-                        found => {
-                            return Err(Error::new(Reason::Expected {
-                                who: Some("`side`".to_string()),
-                                expected: "inner, left, right or full".to_string(),
-                                found: found.to_string(),
-                            })
-                            .with_span(span))
+                        _ => {
+                            // if that fails, fold the ident and try treating the result as a literal
+                            // this allows the join side to be passed as a function parameter
+                            // NOTE: this is temporary, pending discussions and implementation, tracked in #4501
+                            let folded = self.fold_expr(side)?.try_cast(
+                                ExprKind::into_literal,
+                                Some("side"),
+                                "string literal",
+                            )?;
+
+                            match folded.to_string().as_str() {
+                                "\"inner\"" => JoinSide::Inner,
+                                "\"left\"" => JoinSide::Left,
+                                "\"right\"" => JoinSide::Right,
+                                "\"full\"" => JoinSide::Full,
+
+                                _ => {
+                                    return Err(Error::new(Reason::Expected {
+                                        who: Some("`side`".to_string()),
+                                        expected: "inner, left, right or full".to_string(),
+                                        found: folded.to_string(),
+                                    })
+                                    .with_span(span))
+                                }
+                            }
                         }
                     }
                 };
@@ -374,7 +395,7 @@ impl Resolver<'_> {
                     .columns
                     .iter()
                     .cloned()
-                    .map(|x| TupleField::Single(Some(x), None))
+                    .map(|x| TyTupleField::Single(Some(x), None))
                     .collect();
 
                 let frame =
@@ -452,7 +473,7 @@ impl Resolver<'_> {
                 return Err(Error::new(Reason::Unexpected {
                     found: format!("assign to `{alias}`"),
                 })
-                .push_hint(format!("move assign into the tuple: `{{{alias} = ...}}`"))
+                .push_hint(format!("move assign into the tuple: `[{alias} = ...]`"))
                 .with_span(expr.span));
             }
 
@@ -507,7 +528,7 @@ impl Resolver<'_> {
                 let with_name = with.alias.clone();
                 let with = with.ty.clone().unwrap();
                 let with = with.kind.into_array().unwrap();
-                let with = TupleField::Single(with_name, Some(*with));
+                let with = TyTupleField::Single(with_name, Some(*with));
 
                 Some(Ty::new(TyKind::Array(Box::new(Ty::new(ty_tuple_kind(
                     [input, vec![with]].concat(),
@@ -542,7 +563,7 @@ impl Resolver<'_> {
 
 fn range_is_empty(range: &(Option<i64>, Option<i64>)) -> bool {
     match (&range.0, &range.1) {
-        (Some(s), Some(e)) => s >= e,
+        (Some(s), Some(e)) => s > e,
         _ => false,
     }
 }
@@ -602,7 +623,7 @@ impl Resolver<'_> {
 
         // validate that the return type is a relation
         // this can be removed after we have proper type checking for all std functions
-        let expected = Some(Ty::relation(vec![TupleField::Wildcard(None)]));
+        let expected = Some(Ty::relation(vec![TyTupleField::Wildcard(None)]));
         self.validate_expr_type(&mut pipeline, expected.as_ref(), &|| {
             Some("pipeline".to_string())
         })?;
@@ -1080,7 +1101,7 @@ mod tests {
         // distinct query #292
 
         assert_yaml_snapshot!(parse_resolve_and_lower("
-        from db.c_invoice
+        from c_invoice
         select invoice_no
         group invoice_no (
             take 1
@@ -1096,7 +1117,8 @@ mod tests {
             relation:
               kind:
                 ExternRef:
-                  - c_invoice
+                  LocalTable:
+                    - c_invoice
               columns:
                 - Single: invoice_no
                 - Wildcard
@@ -1133,7 +1155,7 @@ mod tests {
         // oops, two arguments #339
         let result = parse_resolve_and_lower(
             "
-        from db.c_invoice
+        from c_invoice
         aggregate average amount
         ",
         );
@@ -1142,7 +1164,7 @@ mod tests {
         // oops, two arguments
         let result = parse_resolve_and_lower(
             "
-        from db.c_invoice
+        from c_invoice
         group issued_at (aggregate average amount)
         ",
         );
@@ -1151,7 +1173,7 @@ mod tests {
         // correct function call
         let ctx = crate::semantic::test::parse_and_resolve(
             "
-        from db.c_invoice
+        from c_invoice
         group issued_at (
             aggregate (average amount)
         )
@@ -1167,7 +1189,7 @@ mod tests {
     #[test]
     fn test_transform_sort() {
         assert_yaml_snapshot!(parse_resolve_and_lower("
-        from db.invoices
+        from invoices
         sort {issued_at, -amount, +num_of_articles}
         sort issued_at
         sort (-issued_at)
@@ -1184,7 +1206,8 @@ mod tests {
             relation:
               kind:
                 ExternRef:
-                  - invoices
+                  LocalTable:
+                    - invoices
               columns:
                 - Single: issued_at
                 - Single: amount

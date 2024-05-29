@@ -15,4 +15,3 @@ FROM
   table_0
 WHERE
   _expr_0 <= 1
-

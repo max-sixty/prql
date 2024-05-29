@@ -1,5 +1,7 @@
 # mssql:test
-from db.albums
+# glaredb:skip — TODO: started raising an error on 2024-05-20; see `window.prql`
+# for more details
+from albums
 select {
     title,
     title_and_spaces = f"  {title}  ",

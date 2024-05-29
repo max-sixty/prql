@@ -1,9 +1,19 @@
 # Modules
 
-> This is a technical document. For a "how to use" or a TLDR; skip to the
-> [Example](#example) section.
+```admonish warning
+The `module` facility is in discussion.
+This page documents our understanding of the way
+the final PRQL compiler will likely work.
+The PRQL compiler currently uses these techniques to compile
+the `std`, `date`, `text`, and `math` modules into the language.
 
-Design goals:
+However, at this time (Spring 2024), the `module` facility does not work
+within a PRQL query itself.
+That is, a `module` statement in a query cannot import files
+from the local file system.
+```
+
+Design goals for **modules**:
 
 1. Allow importing declarations from other files.
 
@@ -62,9 +72,9 @@ module my_playlists {
         let movie_albums = (from albums | filter id == 3)
     }
 
-    from db.soundtracks.movie_albums
+    from soundtracks.movie_albums
 }
-from db.my_playlists.soundtracks.movie_albums
+from my_playlists.soundtracks.movie_albums
 ```
 
 If an identifier cannot be resolved relative to the current module, it tries to
@@ -94,9 +104,9 @@ acquire an implicit name main.
 
 ```
 module my_playlists {
-    let bangers = (from db.tracks | take 10)
+    let bangers = (from tracks | take 10)
 
-    from db.playlists | take 10
+    from playlists | take 10
 }
 
 let album_titles = my_playlists.main
@@ -113,8 +123,13 @@ let album_titles = my_playlists
 
 ## File importing
 
-> This section is under discussion. Current implementation plans do not include
-> `module` declarations, but loading of all files under the compilation path.
+```admonish warning
+The examples below do **not** work.
+At this time (Spring 2024), the `module` facility does not work
+within a PRQL query itself.
+That is, a `module` statement in a query cannot import files
+from the local file system.
+```
 
 To include PRQL source code from other files, we can use the following syntax:
 
@@ -241,7 +256,7 @@ connector (i.e. JDBC) where no other files can be loaded.
 
 ## Built-in module structure
 
-> Work In Progress
+> As noted above, this facility is in discussion.
 
 ```
 # root module of every project
@@ -251,19 +266,26 @@ module project {
 		let mean = a -> ...
 	}
 
-	module db {
+	module default_db {
 		# all inferred tables and defined CTEs
 	}
 
 	let main = (
-		from db.tracks
-		select {t = this}
+		from t = tracks
 		select [track_id, title]
 	)
 }
 ```
 
 ## Example
+
+```admonish warning
+The examples below do **not** work.
+At this time (Spring 2024), the `module` facility does not work
+within a PRQL query itself.
+That is, a `module` statement in a query cannot import files
+from the local file system.
+```
 
 This is an example project, where each of code block is a separate file.
 
