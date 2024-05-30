@@ -105,6 +105,8 @@ pub fn expand_expr(expr: ast::Expr) -> Result<pl::Expr> {
         lineage: None,
         needs_window: false,
         flatten: false,
+        comments_before: Vec::new(),
+        comments_after: Vec::new(),
     })
 }
 
