@@ -355,7 +355,7 @@ pub fn pl_to_prql(pl: &ast::ModuleDef) -> Result<String, ErrorMessages> {
     Ok(codegen::WriteSource::write(&pl.stmts, codegen::WriteOpt::default()).unwrap())
 }
 
-pub fn format_prql(prql: &str) -> Result<String, ErrorMessages> {
+pub fn prql_to_formatted_prql(prql: &str) -> Result<String, ErrorMessages> {
     // TODO: convert errors
     let tokens = prqlc_parser::lex_source(prql).unwrap();
     let pl = prql_to_pl(prql)?;
@@ -371,7 +371,7 @@ pub fn format_prql(prql: &str) -> Result<String, ErrorMessages> {
 #[test]
 fn test_format_comment_basic() {
     use insta::assert_snapshot;
-    assert_snapshot!(format_prql( r#"
+    assert_snapshot!(prql_to_formatted_prql( r#"
     from db.employees # inline comment
     "#
 ).unwrap(), @r###"
@@ -384,12 +384,12 @@ fn test_format_comment_basic() {
 fn test_format_prql() {
     use insta::assert_snapshot;
 
-    assert_snapshot!(format_prql( "from db.employees | select {name, age}").unwrap(), @r###"
+    assert_snapshot!(prql_to_formatted_prql( "from db.employees | select {name, age}").unwrap(), @r###"
     from db.employees
     select {name, age}
     "###);
 
-    assert_snapshot!(format_prql( r#"
+    assert_snapshot!(prql_to_formatted_prql( r#"
         from employees 
         # test comment
         select {name}
@@ -402,7 +402,7 @@ fn test_format_prql() {
 
     "###);
 
-    assert_snapshot!(format_prql( r#"
+    assert_snapshot!(prql_to_formatted_prql( r#"
         # test comment
         from employees # inline comment
         # another test comment

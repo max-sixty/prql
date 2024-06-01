@@ -417,6 +417,109 @@ fn find_comments_after(span: Span, tokens: &TokenVec) -> Vec<Token> {
     out
 }
 
+/// Add comments to the PL AST from the tokens.
+fn add_comments_to_pl(tokens: &TokenVec, pl: &mut Vec<Stmt>) {
+    // Iterate through tokens and when we find a comment or whitespace, add it
+    // to an Expr in the PL
+
+    let comments = tokens.0.iter().filter(|t| {
+        matches!(
+            t.kind,
+            TokenKind::Comment(_) | TokenKind::NewLine | TokenKind::LineWrap(_)
+        )
+    });
+}
+
+/// Adds comments to the PL AST from the tokens.
+struct AestheticTokensAdder {
+    /// Tokens stored in reverse order, so final token is the first token
+    pub aesthetic_tokens: Vec<Token>,
+}
+
+impl AestheticTokensAdder {
+    pub fn new(mut aesthetic_tokens: Vec<Token>) -> Self {
+        aesthetic_tokens.reverse();
+        Self { aesthetic_tokens }
+    }
+}
+
+// impl PlFold for AestheticTokensAdder {
+//     fn fold_expr(&mut self, expr: Expr) -> Result<Expr> {
+//         let Some(next_token) = self.aesthetic_tokens.last() else {
+//             return Ok(expr);
+//         }
+
+//         // If the comment comes before the expr, add it to the
+//         // previous_comments. This can only happen at the start of a statement;
+//         // otherwise we've already grabbed the comment and added it to a
+//         // previous expr.
+//         if next_token.span.start < expr.span.start {
+//             j
+
+//         }
+
+//         let mut expr = expr;
+
+//         expr.kind = match expr.kind {
+//             // these are values already
+//             ExprKind::Literal(l) => ExprKind::Literal(l),
+
+//             // these are values, iff their contents are values too
+//             ExprKind::Array(_) | ExprKind::Tuple(_) => self.fold_expr_kind(expr.kind)?,
+
+//             // functions are values
+//             ExprKind::Func(f) => ExprKind::Func(f),
+
+//             // ident are not values
+//             ExprKind::Ident(ident) => {
+//                 // here we'd have to implement the whole name resolution, but for now,
+//                 // let's do something simple
+
+//                 // this is very crude, but for simple cases, it's enough
+//                 let mut ident = ident;
+//                 let mut base = self.context.clone();
+//                 loop {
+//                     let (first, remaining) = ident.pop_front();
+//                     let res = lookup(base.as_ref(), &first).with_span(expr.span)?;
+
+//                     if let Some(remaining) = remaining {
+//                         ident = remaining;
+//                         base = Some(res);
+//                     } else {
+//                         return Ok(res);
+//                     }
+//                 }
+//             }
+
+//             // the beef happens here
+//             ExprKind::FuncCall(func_call) => {
+//                 let func = self.fold_expr(*func_call.name)?;
+//                 let mut func = func.try_cast(|x| x.into_func(), Some("func call"), "function")?;
+
+//                 func.args.extend(func_call.args);
+
+//                 if func.args.len() < func.params.len() {
+//                     ExprKind::Func(func)
+//                 } else {
+//                     self.eval_function(*func, expr.span)?
+//                 }
+//             }
+
+//             ExprKind::All { .. }
+//             | ExprKind::TransformCall(_)
+//             | ExprKind::SString(_)
+//             | ExprKind::FString(_)
+//             | ExprKind::Case(_)
+//             | ExprKind::RqOperator { .. }
+//             | ExprKind::Param(_)
+//             | ExprKind::Internal(_) => {
+//                 return Err(Error::new_simple("not a value").with_span(expr.span))
+//             }
+//         };
+//         Ok(expr)
+//     }
+// }
+
 impl WriteSource for Vec<Stmt> {
     fn write(&self, mut opt: WriteOpt) -> Option<String> {
         opt.reset_line()?;
