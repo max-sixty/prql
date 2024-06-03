@@ -1,13 +1,15 @@
 use std::collections::HashSet;
 
-use once_cell::sync::Lazy;
-use prqlc_parser::{Token, TokenKind, TokenVec};
 use regex::Regex;
 
+use once_cell::sync::Lazy;
+use prqlc_ast::expr::*;
+use prqlc_parser::TokenVec;
+
 use crate::ast::*;
-use crate::codegen::SeparatedExprs;
 
 use super::{WriteOpt, WriteSource};
+use crate::codegen::SeparatedExprs;
 
 pub(crate) fn write_expr(expr: &Expr) -> String {
     expr.write(WriteOpt::new_width(u16::MAX)).unwrap()
