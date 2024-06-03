@@ -53,14 +53,6 @@ pub struct Expr {
     // TODO: maybe we should have a special ExprKind instead of this flag?
     #[serde(skip)]
     pub flatten: bool,
-
-    /// Currently used in `prqlc fmt` (but possibly we should have a parallel
-    /// AST or a different design; it's not ideal to have these fields which are
-    /// used for a different purpose)
-    #[serde(skip)]
-    pub comments_before: Vec<Token>,
-    #[serde(skip)]
-    pub comments_after: Vec<Token>,
 }
 
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Serialize, Deserialize, strum::AsRefStr)]

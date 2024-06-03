@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use prqlc_ast::expr::*;
 use prqlc_parser::TokenVec;
 
-use crate::ast::*;
+use crate::{ast::*, ir::pl::PlFold};
 
 use super::{WriteOpt, WriteSource};
 use crate::codegen::SeparatedExprs;
@@ -502,82 +502,83 @@ impl AestheticTokensAdder {
     }
 }
 
-// impl PlFold for AestheticTokensAdder {
-//     fn fold_expr(&mut self, expr: Expr) -> Result<Expr> {
-//         let Some(next_token) = self.aesthetic_tokens.last() else {
-//             return Ok(expr);
-//         }
+use crate::Result;
 
-//         // If the comment comes before the expr, add it to the
-//         // previous_comments. This can only happen at the start of a statement;
-//         // otherwise we've already grabbed the comment and added it to a
-//         // previous expr.
-//         if next_token.span.start < expr.span.start {
-//             j
+impl PlFold for AestheticTokensAdder {
+    fn fold_expr(&mut self, expr: Expr) -> Result<Expr> {
+        let Some(next_token) = self.aesthetic_tokens.last() else {
+            return Ok(expr);
+        };
 
-//         }
+        let mut expr = expr;
 
-//         let mut expr = expr;
+        // If the comment comes before the expr, add it to the
+        // previous_comments. This can only happen at the start of a statement;
+        // otherwise we've already grabbed the comment and added it to a
+        // previous expr.
+        if next_token.span.start < expr.span.start {
+            expr.comments_before
+        }
 
-//         expr.kind = match expr.kind {
-//             // these are values already
-//             ExprKind::Literal(l) => ExprKind::Literal(l),
+        expr.kind = match expr.kind {
+            // these are values already
+            ExprKind::Literal(l) => ExprKind::Literal(l),
 
-//             // these are values, iff their contents are values too
-//             ExprKind::Array(_) | ExprKind::Tuple(_) => self.fold_expr_kind(expr.kind)?,
+            // these are values, iff their contents are values too
+            ExprKind::Array(_) | ExprKind::Tuple(_) => self.fold_expr_kind(expr.kind)?,
 
-//             // functions are values
-//             ExprKind::Func(f) => ExprKind::Func(f),
+            // functions are values
+            ExprKind::Func(f) => ExprKind::Func(f),
 
-//             // ident are not values
-//             ExprKind::Ident(ident) => {
-//                 // here we'd have to implement the whole name resolution, but for now,
-//                 // let's do something simple
+            // ident are not values
+            ExprKind::Ident(ident) => {
+                // here we'd have to implement the whole name resolution, but for now,
+                // let's do something simple
 
-//                 // this is very crude, but for simple cases, it's enough
-//                 let mut ident = ident;
-//                 let mut base = self.context.clone();
-//                 loop {
-//                     let (first, remaining) = ident.pop_front();
-//                     let res = lookup(base.as_ref(), &first).with_span(expr.span)?;
+                // this is very crude, but for simple cases, it's enough
+                let mut ident = ident;
+                let mut base = self.context.clone();
+                loop {
+                    let (first, remaining) = ident.pop_front();
+                    let res = lookup(base.as_ref(), &first).with_span(expr.span)?;
 
-//                     if let Some(remaining) = remaining {
-//                         ident = remaining;
-//                         base = Some(res);
-//                     } else {
-//                         return Ok(res);
-//                     }
-//                 }
-//             }
+                    if let Some(remaining) = remaining {
+                        ident = remaining;
+                        base = Some(res);
+                    } else {
+                        return Ok(res);
+                    }
+                }
+            }
 
-//             // the beef happens here
-//             ExprKind::FuncCall(func_call) => {
-//                 let func = self.fold_expr(*func_call.name)?;
-//                 let mut func = func.try_cast(|x| x.into_func(), Some("func call"), "function")?;
+            // the beef happens here
+            ExprKind::FuncCall(func_call) => {
+                let func = self.fold_expr(*func_call.name)?;
+                let mut func = func.try_cast(|x| x.into_func(), Some("func call"), "function")?;
 
-//                 func.args.extend(func_call.args);
+                func.args.extend(func_call.args);
 
-//                 if func.args.len() < func.params.len() {
-//                     ExprKind::Func(func)
-//                 } else {
-//                     self.eval_function(*func, expr.span)?
-//                 }
-//             }
+                if func.args.len() < func.params.len() {
+                    ExprKind::Func(func)
+                } else {
+                    self.eval_function(*func, expr.span)?
+                }
+            }
 
-//             ExprKind::All { .. }
-//             | ExprKind::TransformCall(_)
-//             | ExprKind::SString(_)
-//             | ExprKind::FString(_)
-//             | ExprKind::Case(_)
-//             | ExprKind::RqOperator { .. }
-//             | ExprKind::Param(_)
-//             | ExprKind::Internal(_) => {
-//                 return Err(Error::new_simple("not a value").with_span(expr.span))
-//             }
-//         };
-//         Ok(expr)
-//     }
-// }
+            ExprKind::All { .. }
+            | ExprKind::TransformCall(_)
+            | ExprKind::SString(_)
+            | ExprKind::FString(_)
+            | ExprKind::Case(_)
+            | ExprKind::RqOperator { .. }
+            | ExprKind::Param(_)
+            | ExprKind::Internal(_) => {
+                return Err(Error::new_simple("not a value").with_span(expr.span))
+            }
+        };
+        Ok(expr)
+    }
+}
 
 impl WriteSource for Vec<Stmt> {
     fn write(&self, mut opt: WriteOpt) -> Option<String> {

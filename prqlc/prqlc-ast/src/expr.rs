@@ -19,6 +19,8 @@ impl Expr {
             kind: kind.into(),
             span: None,
             alias: None,
+            comments_before: vec![],
+            comments_after: vec![],
         }
     }
 }
@@ -37,6 +39,14 @@ pub struct Expr {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
+
+    /// Currently used in `prqlc fmt` (but possibly we should have a parallel
+    /// AST or a different design; it's not ideal to have these fields which are
+    /// used for a different purpose)
+    #[serde(skip)]
+    pub comments_before: Vec<token::Token>,
+    #[serde(skip)]
+    pub comments_after: Vec<token::Token>,
 }
 
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Serialize, Deserialize, strum::AsRefStr)]

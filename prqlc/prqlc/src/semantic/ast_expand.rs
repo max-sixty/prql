@@ -105,8 +105,6 @@ pub fn expand_expr(expr: ast::Expr) -> Result<pl::Expr> {
         lineage: None,
         needs_window: false,
         flatten: false,
-        comments_before: Vec::new(),
-        comments_after: Vec::new(),
     })
 }
 
@@ -294,6 +292,8 @@ pub fn restrict_expr(expr: pl::Expr) -> ast::Expr {
         kind: restrict_expr_kind(expr.kind),
         span: expr.span,
         alias: expr.alias,
+        comments_before: vec![],
+        comments_after: vec![],
     }
 }
 

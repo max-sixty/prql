@@ -125,8 +125,6 @@ impl Expr {
             needs_window: false,
             alias: None,
             flatten: false,
-            comments_before: vec![],
-            comments_after: vec![],
         }
     }
 }
