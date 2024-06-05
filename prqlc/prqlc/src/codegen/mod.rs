@@ -2,9 +2,8 @@ mod ast;
 mod types;
 
 pub(crate) use ast::write_expr;
-pub(crate) use types::{write_ty, write_ty_kind};
-
 use prqlc_parser::TokenVec;
+pub(crate) use types::{write_ty, write_ty_kind};
 
 pub trait WriteSource: std::fmt::Debug {
     /// Converts self to its source representation according to specified

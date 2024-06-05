@@ -13,6 +13,8 @@
 - Join `side` parameter can take a reference that resolves to a literal (note:
   this is an experimental feature which may change in the future) (@kgutwin,
   #4499)
+- Add `prqlc debug lineage` command to the CLI, creating an expression lineage
+  graph from a query (@kgutwin, #4533)
 
 **Fixes**:
 
@@ -1141,8 +1143,8 @@ below in this release).
 
 **Documentation**:
 
-[This release, the changelog only contains a subset of documentation
-improvements]
+[This release, the changelog only contains a subset of
+documentation improvements]
 
 - Add docs on aliases in
   [Select](https://prql-lang.org/book/reference/stdlib/transforms/select.html)

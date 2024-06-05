@@ -394,13 +394,6 @@ jobs:
   measure-code-cov:
     runs-on: ubuntu-latest
     needs: rules
-    # Annoyingly, dependabot doesn't get the `${{ secrets.CODECOV_TOKEN }}`
-    # secret, but codecov expects one given it's not a forked PR. So to avoid
-    # failing, we skip this. (Ideally dependabot would either come from a fork
-    # and not be this special case...). If codecov.io either recognizes this
-    # case or stops requiring tokens while remaining reliable, we can remove
-    # this exception.
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: 📂 Checkout code
         uses: actions/checkout@v4
@@ -425,15 +418,11 @@ jobs:
         with:
           files: cobertura.xml
           fail_ci_if_error: true
-          # This isn't strictly necessary, but as discussed in
+          # As discussed in
           # https://community.codecov.com/t/upload-issues-unable-to-locate-build-via-github-actions-api/3954,
-          # without this the upload has a fairly high failure rate. That also
-          # suggests copying the token into the repo in plain text to ensure it
-          # doesn't also fail on forks. The only thing the token allows is
-          # uploading coverage, so there's no material security risk. (The token
-          # is at https://app.codecov.io/gh/PRQL/prql/settings if we need to do
-          # that.)
-          token: ${{ secrets.CODECOV_TOKEN }}
+          # without this the upload has a fairly high failure rate. The only thing the
+          # token allows is uploading coverage, so there are apparently no security risks.
+          token: cab4ace5-4f10-4027-8b5c-d79722234571
       - name: Upload code coverage results
         uses: actions/upload-artifact@v4
         with:
