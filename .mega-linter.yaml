@@ -1,6 +1,3 @@
-# This MegaLinter config is very experimental stage. Open to changes and updates.
-# https://github.com/PRQL/prql/pull/1974
-
 GITHUB_COMMENT_REPORTER: false
 DISABLE:
   - RUST
@@ -18,6 +15,8 @@ DISABLE_LINTERS:
   - REPOSITORY_TRUFFLEHOG # Detecting secrets in .git/config, which is not even committed.
   - REPOSITORY_GRYPE # Slow (10+ seconds). Blocking unrelated PRs. We already have depandabot.
   - YAML_V8R # Slow (70+ seconds). We don't use YAML schema.
+  - JSON_V8R # Failing for vscode-style syntax (comments).
+  - REPOSITORY_GITLEAKS # False positive on codecov token, which according to codecov is fine to have hardcoded
 DISABLE_ERRORS_LINTERS:
   - COPYPASTE_JSCPD
   - REPOSITORY_TRIVY
@@ -34,6 +33,13 @@ DISABLE_ERRORS_LINTERS:
   - JSON_JSONLINT
   - MAKEFILE_CHECKMAKE
   - MARKDOWN_MARKDOWN_LINK_CHECK
+  # Prevents us from starting a new library, since it raises an error on unpublished libraries. Can remove after publishing...
+  - REPOSITORY_DUSTILOCK
   - SPELL_MISSPELL
+  # Disabled for now, as @max-sixty didn't know whether "Unable to locate the
+  # project file. A project file (tsconfig.json or tsconfig.eslint.json) is
+  # required in order to use ts-standard." was worth fixing, from #3608. Happy
+  # for someone more informed to turn it back on.
+  - TYPESCRIPT_STANDARD
 PHP_PHPCS_ARGUMENTS:
   - --standard=PSR12

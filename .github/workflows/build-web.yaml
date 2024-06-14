@@ -8,11 +8,7 @@ env:
   CARGO_TERM_COLOR: always
   CLICOLOR_FORCE: 1
   RUSTFLAGS: "-C debuginfo=0"
-
-concurrency:
-  # See notes in `pull-request.yaml`
-  group: ${{ github.workflow }}-${{ github.ref }}-web
-  cancel-in-progress: true
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   build-web:
@@ -25,36 +21,33 @@ jobs:
 
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Website requires hugo
-      - name: Setup hugo
-        uses: peaceiris/actions-hugo@v2.6.0
+      # Website requires Hugo
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3.0.0
 
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: mdbook
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: mdbook-footnote
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: mdbook-admonish
-
-      - uses: baptiste0928/cargo-install@v2
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: wasm-pack
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
-          registry-url: "https://registry.npmjs.org"
+          node-version: "20.x"
           cache: "npm"
           cache-dependency-path: "**/package-lock.json"
 
-      - run: ./.github/set_version.sh
-
+      - run: ./.github/workflows/scripts/set_version.sh
       - name: 💰 Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -64,13 +57,41 @@ jobs:
             ${{ github.ref == 'refs/heads/web' || github.ref ==
             'refs/heads/main' }}
 
-      - uses: arduino/setup-task@v1
+      - uses: arduino/setup-task@v2
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 🕷️ Build website
-        run: task build-web
+      - name: 🕷️ Build web
+        run: task web:build
 
-      - uses: actions/upload-pages-artifact@v2.0.0
+      - uses: actions/upload-pages-artifact@v3.0.1
         with:
           path: web/website/public/
+
+  build-codemirror-demo:
+    runs-on: ubuntu-latest
+
+    if: github.repository_owner == 'prql'
+
+    steps:
+      - name: 📂 Checkout code
+        uses: actions/checkout@v4
+      - name: 🧅 Setup Bun
+        uses: oven-sh/setup-bun@v1
+      - name: Install CodeMirror demo dependencies
+        working-directory: web/prql-codemirror-demo/
+        run: bun install
+      - name: Install Lezer dependencies
+        working-directory: grammars/prql-lezer/
+        run: bun install
+      - name: Build Lezer grammar
+        working-directory: grammars/prql-lezer/
+        run: bun run build
+      - name: Copy Lezer grammar into demo
+        working-directory: web/prql-codemirror-demo/
+        run: |
+          mkdir src/lang-prql/prql-lezer
+          cp ../../grammars/prql-lezer/dist/* src/lang-prql/prql-lezer/
+      - name: Build CodeMirror demo
+        working-directory: web/prql-codemirror-demo/
+        run: bun run build

@@ -1,0 +1,189 @@
+# Boolean: true
+
+filter true
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Boolean))))
+
+# Boolean: false
+
+filter false
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Boolean))))
+
+# Null
+
+filter null
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(null))))
+
+# Keyword: this
+
+filter this
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(this))))
+
+# Keyword: that
+
+filter that
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(that))))
+
+# Annotation
+
+@{binding_strength=1}
+let x = y -> z
+
+==>
+
+Query(Annotation(Declaration(DeclarationItem,Equals,Integer)),VariableDeclaration(let,VariableName,Equals,Lambda(LambdaParam,Identifier)))
+
+# Range: 10..20
+
+filter 10..20
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(RangeExpression))))
+
+# Comment
+
+filter 1 # Hello
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))),Comment)
+
+# Two comments
+
+# Hello
+# Bar
+
+==>
+
+Query(Comment,Comment)
+
+# Comment between pipes
+
+from foo
+# filter...
+select bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier)),Comment,CallExpression(Identifier,ArgList(Identifier))))
+
+# Docblock
+
+#! Hello
+filter 1
+
+==>
+
+Query(Docblock,Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Variable declaration
+
+let foo = (from foo)
+
+==>
+
+Query(VariableDeclaration(let,VariableName,Equals,NestedPipeline(Pipeline(CallExpression(Identifier,ArgList(Identifier))))))
+
+# Function declaration
+
+let my_func = arg1 -> arg1
+
+==>
+
+Query(VariableDeclaration(let,VariableName,Equals,Lambda(LambdaParam,Identifier)))
+
+# Function declaration with two args
+
+let my_func = arg1 arg2 -> arg1 + arg2
+
+==>
+
+Query(VariableDeclaration(let,VariableName,Equals,Lambda(LambdaParam,LambdaParam,BinaryExpression(Identifier,ArithOp,Identifier))))
+
+# Function declaration with type annotation
+
+let my_func = arg1<int32> -> arg1
+
+==>
+
+Query(VariableDeclaration(let,VariableName,Equals,Lambda(LambdaParam(TypeDefinition(TypeName)),Identifier)))
+
+# Parameter
+
+filter id == $1
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Parameter)))))
+
+# Parenthesized expression
+
+filter (1)
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ParenthesizedExpression(Integer)))))
+
+# Simple pipeline
+
+from foo | select bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier)),CallExpression(Identifier,ArgList(Identifier))))
+
+# Derive
+
+derive {
+  transaction_fees = 0.8,
+  income = total - transaction_fees
+}
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(DeclarationTuple(DeclarationItem,Equals,Float),DeclarationTuple(DeclarationItem,Equals,BinaryExpression(Identifier,ArithOp,Identifier)))))))
+
+# Nested pipeline
+
+group customer_id (
+  aggregate {
+    average total
+  }
+)
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier,NestedPipeline(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(CallExpression(Identifier,ArgList(Identifier)))))))))))
+
+# Tabs as spaces
+
+let		foo		=		(foo 1)
+
+==>
+
+Query(VariableDeclaration(let,VariableName,Equals,NestedPipeline(Pipeline(CallExpression(Identifier,ArgList(Integer))))))
+
+# Module
+
+module foo {
+  let x = -> s"foo()"
+}
+
+==>
+
+Query(Module(module,Identifier,VariableDeclaration(let,VariableName,Equals,Lambda(SString))))

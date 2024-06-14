@@ -21,20 +21,38 @@ operations and for function calls (see the discussion below.)
 <!-- markdownlint-disable MD033 — the `|` characters need to be escaped, and surrounded with tags rather than backticks   -->
 
 |          Group | Operators                   | Precedence | Associativity |
-| -------------: | --------------------------- | :--------: | :-----------: |
+| -------------: | --------------------------- | :--------: | :-----------: | --- | --- |
 |    parentheses | `()`                        |     0      |   see below   |
 | identifier dot | `.`                         |     1      |               |
 |          unary | `-` `+` `!` `==`            |     2      |               |
 |          range | `..`                        |     3      |               |
-|            mul | `*` `/` `//` `%`            |     4      | left-to-right |
-|            add | `+` `-`                     |     5      | left-to-right |
-|        compare | `==` `!=` `<=` `>=` `<` `>` |     6      | left-to-right |
-|       coalesce | `??`                        |     7      | left-to-right |
-|            and | `&&`                        |     8      | left-to-right |
-|             or | <code>\|\|</code>           |     9      | left-to-right |
-|  function call |                             |     10     |               |
+|           <!-- | pow                         |    `**`    |       4       |     | --> |
+|            mul | `*` `/` `//` `%`            |     5      | left-to-right |
+|            add | `+` `-`                     |     6      | left-to-right |
+|        compare | `==` `!=` `<=` `>=` `<` `>` |     7      | left-to-right |
+|       coalesce | `??`                        |     8      | left-to-right |
+|            and | `&&`                        |     9      | left-to-right |
+|             or | <code>\|\|</code>           |     10     | left-to-right |
+|  function call |                             |     11     |               |
 
-<!-- TODO: do we need to list all of the operators and describe them? -->
+## Division and integer division
+
+The `/` operator performs division that always returns a float value, while the
+`//` operator does integer division (truncated division) that always returns an
+integer value.
+
+```prql
+prql target:sql.sqlite
+
+from [
+  {a = 5, b = 2},
+  {a = 5, b = -2},
+]
+select {
+  div_out = a / b,
+  int_div_out = a // b,
+}
+```
 
 ## Coalesce
 
@@ -111,7 +129,7 @@ PRQL uses parentheses `()` for several purposes:
   main pipeline, for example: `(column-name | in 0..20)`
 
 - Parentheses wrap a function call that is part of a larger expression, for
-  example: `round 0 (sum distance)`
+  example: `math.round 0 (sum distance)`
 
 Parentheses are _not_ required for expressions that do not contain function
 calls, for example: `foo + bar`.
@@ -129,7 +147,7 @@ derive min_capped_distance = (min distance ?? 5)
 # No parentheses needed, because no function call
 derive travel_time = distance / 40
 # No inner parentheses needed around `1+1` because no function call
-derive distance_rounded_2_dp = (round 1+1 distance)
+derive distance_rounded_2_dp = (math.round 1+1 distance)
 derive {
   # Requires parentheses, because it contains a pipe
   is_far = (distance | in 100..),
@@ -169,3 +187,41 @@ We're continuing to think whether these rules can be more intuitive.
 We're also planning to make the error messages much better,
 so the compiler can help out.
 ```
+
+## Wrapping lines
+
+Line breaks in PRQL have semantic meaning, so to wrap a single logical line into
+multiple physical lines, we can use `\` at the beginning of subsequent physical
+lines:
+
+```prql
+from artists
+select is_europe =
+\ country == "DE"
+\ || country == "FR"
+\ || country == "ES"
+```
+
+Wrapping will "jump over" empty lines or lines with comments. For example, the
+`select` here is only one logical line:
+
+```prql
+from tracks
+# This would be a really long line without being able to split it:
+select listening_time_years = (spotify_plays + apple_music_plays + pandora_plays)
+# We can toggle between lines when developing:
+# \ * length_seconds
+\ * length_s
+#   min  hour day  year
+\ / 60 / 60 / 24 / 365
+```
+
+```admonish info
+Note that PRQL differs from most languages, which use a `\` at the _end_ of the
+preceding line. Because PRQL aims to be friendly for data exploration, we want
+to make it possible to comment out any line, including the final line, without
+breaking the query. This requires all lines after the first to be structured similarly,
+and for the character to be at the start of each following line.
+```
+
+See [Pipes](./pipes.md) for more details on line breaks.

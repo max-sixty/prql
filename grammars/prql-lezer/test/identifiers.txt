@@ -1,0 +1,24 @@
+# Basic identifier
+
+filter foo
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier))))
+
+
+# Identifier with underscore and digit
+
+filter foo_123
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier))))
+
+# Unicode identifier
+
+filter räksmörgås
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier))))

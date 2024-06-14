@@ -1,11 +1,14 @@
 comment: false
 
 ignore:
-  # Contains code for integration tests which don't run in coverage
-  - "crates/prql-compiler/tests/integration/**"
+  - "**/tests/**"
 
 coverage:
   status:
     project:
       default:
         removed_code_behavior: adjust_base
+
+    patch:
+      default:
+        only_pulls: true

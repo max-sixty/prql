@@ -1,0 +1,79 @@
+# == Equals
+
+filter foo == bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Identifier)))))
+
+# != Not equals
+
+filter foo != bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Identifier)))))
+
+# >= Greater than
+
+filter foo >= bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Identifier)))))
+
+# <= Less than
+
+filter foo <= bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Identifier)))))
+
+# ~= Regex match
+
+filter foo ~= bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,CompareOp,Identifier)))))
+
+# && And
+
+filter foo && bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,LogicOp,Identifier)))))
+
+# || Or
+
+filter foo || bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,LogicOp,Identifier)))))
+
+# ?? Coalesce
+
+filter foo ?? bar
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(BinaryExpression(Identifier,LogicOp,Identifier)))))
+
+# Unary operator -
+
+sort { -name }
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(TupleExpression(UnaryExpression(ArithOp,Identifier))))))
+
+# Unary operator ==
+
+join customers (==customer_id)
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Identifier,ParenthesizedExpression(UnaryExpression(CompareOp,Identifier))))))

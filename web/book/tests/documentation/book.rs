@@ -1,13 +1,14 @@
 #![cfg(not(target_family = "wasm"))]
+use std::fs;
+use std::path::Path;
+
 use anyhow::{anyhow, bail, Result};
 use globset::Glob;
 use insta::assert_snapshot;
 use itertools::Itertools;
 use mdbook_prql::{code_block_lang_tags, LangTag};
-use prql_compiler::{pl_to_prql, pl_to_rq, prql_to_pl, ErrorMessages};
+use prqlc::{pl_to_prql, pl_to_rq, prql_to_pl};
 use pulldown_cmark::Tag;
-use std::fs;
-use std::path::Path;
 use walkdir::WalkDir;
 
 use super::compile;
@@ -80,7 +81,7 @@ Remove `error` as a language label to assert successfully compiling.
 }
 
 #[test]
-fn test_prql_examples_rq_serialize() -> Result<(), ErrorMessages> {
+fn test_prql_examples_rq_serialize() -> Result<()> {
     for Example { tags, prql, .. } in collect_book_examples()? {
         // Don't assert that this fails, whether or not they compile to RQ is
         // undefined.
@@ -111,7 +112,7 @@ fn test_prql_examples_display_then_compile() -> Result<()> {
     let mut errs = Vec::new();
     for Example { name, tags, prql } in examples {
         let result = prql_to_pl(&prql)
-            .and_then(pl_to_prql)
+            .and_then(|x| pl_to_prql(&x))
             .and_then(|x| compile(&x));
 
         let should_succeed = !tags.contains(&LangTag::NoFmt);
@@ -188,7 +189,7 @@ fn collect_book_examples() -> Result<Vec<Example>> {
             // section they're in. This makes them easier to find and means
             // adding one example at the top of the book doesn't cause a huge
             // diff in the snapshots of that file's examples..
-            let mut latest_heading = "";
+            let mut latest_heading = "".to_string();
             let file_name = &dir_entry
                 .path()
                 .strip_prefix("./src/")?
@@ -198,15 +199,20 @@ fn collect_book_examples() -> Result<Vec<Example>> {
 
             // Iterate through the markdown file, getting examples.
             while let Some(event) = parser.next() {
-                if let Event::Start(Tag::Heading(..)) = event.clone() {
+                if let Event::Start(Tag::Heading { .. }) = event.clone() {
                     if let Some(Event::Text(pulldown_cmark::CowStr::Borrowed(heading))) =
                         parser.next()
                     {
-                        latest_heading = heading;
+                        // We clear and then push because just setting
+                        // `latest_heading` leads to lifetime issues.
+                        latest_heading = heading
+                            .chars()
+                            .filter(|&c| c.is_ascii_alphanumeric() || c == '-' || c == ' ')
+                            .collect();
                     }
                 }
                 let Some(tags) = code_block_lang_tags(&event) else {
-                    continue
+                    continue;
                 };
 
                 if tags.contains(&LangTag::Prql) && !tags.contains(&LangTag::NoEval) {

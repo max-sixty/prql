@@ -34,6 +34,25 @@ derive {
 }
 ```
 
+## Other examples
+
+```prql
+let is_adult = col -> col >= 18
+let writes_code = col -> (col | in ["PRQL", "Rust"])
+let square = col -> (col | math.pow 2)
+let starts_with_a = col -> (col | text.lower | text.starts_with("a"))
+
+from employees
+select {
+    first_name,
+    last_name,
+    hobby,
+    adult = is_adult age,
+    age_squared = square age,
+}
+filter ((starts_with_a last_name) && (writes_code hobby))
+```
+
 ## Piping values into functions
 
 Consistent with the principles of PRQL, it's possible to pipe values into

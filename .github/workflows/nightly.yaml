@@ -1,5 +1,5 @@
 # A workflow containing jobs we run only on nightly. This is called by
-# `pull-request` on a schedule and on request with `pr-nightly`.
+# `tests.yaml` on a schedule and on request with a `pr-nightly` label.
 
 name: nightly
 
@@ -14,18 +14,13 @@ jobs:
     # incorrectly fail (
     # https://github.com/PRQL/prql/actions/runs/5718693342/job/15495030808?pr=3195#step:3:28
     # ). So we disable. If we wanted to run checks on PRs, we could move this to
-    # `pull-request-target`. And note that it does suggest that it can run on
-    # forks at https://github.com/rustsec/audit-check#limitations
+    # `pull-request-target`.
     #
-    # We also disable on dependabot, since that seems to fail (
-    # https://github.com/PRQL/prql/actions/runs/5858855686/job/15883652166?pr=3337
-    # )— possibly the
-    # existing model for how this works doesn't handle dependabot, which is on
-    # the repo but maybe has different permissions. Would be better if we had
-    # something more general than a specific exclusion.
+    # Would be better if we could only run when we know we have permissions. But
+    # this will do...
     if:
-      ${{ !github.event.pull_request.head.repo.fork && !github.actor ==
-      'dependabot[bot]' }}
+      ${{ github.repository_owner == 'prql' &&
+      !github.event.pull_request.head.repo.fork }}
     permissions:
       actions: read
       contents: read
@@ -34,30 +29,21 @@ jobs:
       checks: write
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: rustsec/audit-check@v1
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v1.4.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Only used in tests. Waiting for tiberius to publish a new release.
+          ignore: "RUSTSEC-2024-0336"
 
-  # Maybe add to test-all?
   cargo-bench:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: richb-hanover/cargo@v1.1.0
+      - uses: actions/checkout@v4
+      - uses: clechasseur/rs-cargo@v2
         with:
           command: bench
           args: --timings --all-targets
-
-  check-links-markdown:
-    # We run only on modified files and only on our resources in PRs; here we
-    # run on all links and all files.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: gaurav-nelson/github-action-markdown-link-check@v1
-        with:
-          config-file: .config/.markdown-link-check-all.json
 
   time-compilation:
     runs-on: ubuntu-latest
@@ -66,47 +52,51 @@ jobs:
         use_cache: [true, false]
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: ./.github/actions/time-compilation
         with:
           use_cache: ${{ matrix.use_cache }}
 
   update-rust-toolchain:
     runs-on: ubuntu-latest
-    # Don't run on forks; will attempt to create a PR into the fork...
-    # if: ${{ !github.event.pull_request.head.repo.fork }}
-
-    # Disable until 1.72.0 is released, see https://github.com/rust-lang/rust/pull/112154
-    if: false
-
+    # # See notes in `cargo-audit` for why we disable on forks and dependabot.
+    if:
+      ${{ github.repository_owner == 'prql' &&
+      !github.event.pull_request.head.repo.fork }}
     # Note that this doesn't change the minimum supported version, only the
-    # default to run on. The minimum is defined by Cargo.toml's metadata.msrv.
+    # default toolchain to run on. The minimum is defined by Cargo.toml's
+    # metadata.msrv and is updated manually based on when build environments
+    # such as debian & winget are updated.
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: a-kenji/update-rust-toolchain@main
         with:
           # Discussion in #1561
           minor-version-delta: 1
           toolchain-path: "./rust-toolchain.toml"
           pr-title: "build: Update rust toolchain version"
+          token: ${{ secrets.PRQL_BOT_GITHUB_TOKEN }}
+    permissions:
+      contents: read
+      issues: write
 
   check-unused-dependencies:
     runs-on: ubuntu-latest
     steps:
       - name: 📂 Checkout code
-        uses: actions/checkout@v3
-      - run: rustup override set nightly-2023-04-22
-      - uses: baptiste0928/cargo-install@v2
+        uses: actions/checkout@v4
+      - run: rustup override set nightly-2023-11-22
+      - uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-udeps
       # Once with all targets, once without, to find anything that should be in
       # `dev` but is more general.
-      - uses: richb-hanover/cargo@v1.1.0
+      - uses: clechasseur/rs-cargo@v2
         with:
           command: udeps
           args: --all-targets
-      - uses: richb-hanover/cargo@v1.1.0
+      - uses: clechasseur/rs-cargo@v2
         with:
           command: udeps
 
@@ -118,7 +108,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: 📂 Checkout code
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
 
   #     - uses: docker/setup-buildx-action@v2
 
@@ -157,11 +147,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           # If you wish to specify custom queries, you can do so here or in a config file.
@@ -174,7 +164,7 @@ jobs:
       # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
       # If this step fails, then you should remove it and run the build manually (see below)
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       # ℹ️ Command-line programs to run using the OS shell.
       # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
@@ -187,10 +177,8 @@ jobs:
       #   ./location_of_script_within_repo/buildscript.sh
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
 
   nightly-release:
     # Test release workflow
     uses: ./.github/workflows/release.yaml
-    with:
-      dry-run: false

@@ -1,16 +1,15 @@
 #![cfg(not(target_family = "wasm"))]
 
+use std::str::FromStr;
+
 use anyhow::{bail, Result};
 use itertools::Itertools;
 use mdbook::preprocess::Preprocessor;
 use mdbook::preprocess::PreprocessorContext;
 use mdbook::{book::Book, BookItem};
-use prql_compiler::compile;
+use prqlc::compile;
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag};
-use pulldown_cmark_to_cmark::cmark;
-
-use std::str::FromStr;
-
+use pulldown_cmark_to_cmark::cmark_with_options;
 use strum::EnumString;
 
 pub struct ComparisonPreprocessor;
@@ -59,13 +58,7 @@ pub enum LangTag {
 /// For example: ```prql no-test
 pub fn code_block_lang_tags(event: &Event) -> Option<Vec<LangTag>> {
     if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) = event {
-        Some(
-            lang.to_string()
-                .split(' ')
-                .map(LangTag::from_str)
-                .try_collect()
-                .ok()?,
-        )
+        Some(lang.split(' ').map(LangTag::from_str).try_collect().ok()?)
     } else {
         None
     }
@@ -103,7 +96,7 @@ fn replace_examples(text: &str) -> Result<String> {
         };
 
         let prql = text.to_string();
-        let result = compile(&prql, &prql_compiler::Options::default().no_signature());
+        let result = compile(&prql, &prqlc::Options::default().no_signature());
 
         if lang_tags.contains(&LangTag::NoTest) {
             cmark_acc.push(Event::Html(table_of_prql_only(&prql).into()));
@@ -116,7 +109,7 @@ fn replace_examples(text: &str) -> Result<String> {
                         "Query was labeled to raise an error, but succeeded.\n{prql}\n\n{sql}\n\n"
                     )
                 }
-                Err(e) => ansi_to_html::convert_escaped(e.to_string().as_str()).unwrap(),
+                Err(e) => ansi_to_html::convert(e.to_string().as_str()).unwrap(),
             };
 
             cmark_acc.push(Event::Html(table_of_error(&prql, &error_message).into()))
@@ -138,7 +131,8 @@ fn replace_examples(text: &str) -> Result<String> {
         parser.next();
     }
     let mut buf = String::new();
-    cmark(cmark_acc.into_iter(), &mut buf)?;
+    let opts = pulldown_cmark_to_cmark::Options::default();
+    cmark_with_options(cmark_acc.into_iter(), &mut buf, opts)?;
 
     Ok(buf)
 }
@@ -146,6 +140,7 @@ fn replace_examples(text: &str) -> Result<String> {
 fn table_of_comparison(prql: &str, sql: &str) -> String {
     format!(
         r#"
+
 <div class="comparison">
 
 <div>
@@ -171,7 +166,6 @@ fn table_of_comparison(prql: &str, sql: &str) -> String {
         prql = prql.trim(),
         sql = sql,
     )
-    .trim_start()
     .to_string()
 }
 
@@ -179,6 +173,7 @@ fn table_of_comparison(prql: &str, sql: &str) -> String {
 fn table_of_prql_only(prql: &str) -> String {
     format!(
         r#"
+
 <div class="comparison">
 
 <div>
@@ -193,7 +188,6 @@ fn table_of_prql_only(prql: &str) -> String {
 "#,
         prql = prql.trim(),
     )
-    .trim_start()
     .to_string()
 }
 
@@ -201,6 +195,7 @@ fn table_of_prql_only(prql: &str) -> String {
 fn table_of_error(prql: &str, message: &str) -> String {
     format!(
         r#"
+
 <div class="comparison">
 
 <div>
@@ -224,13 +219,14 @@ fn table_of_error(prql: &str, message: &str) -> String {
         prql = prql.trim(),
         message = message,
     )
-    .trim_start()
     .to_string()
 }
 
 #[test]
 fn test_replace_examples() -> Result<()> {
-    use insta::assert_display_snapshot;
+    use insta::assert_snapshot;
+    // Here we do want colors
+    anstream::ColorChoice::Always.write_global();
 
     let md = r###"
 # PRQL Doc
@@ -248,10 +244,7 @@ this is an error
 ```
     "###;
 
-    // Here we do want colors
-    anstream::ColorChoice::Always.write_global();
-
-    assert_display_snapshot!(replace_examples(md)?, @r###"
+    assert_snapshot!(replace_examples(md)?, md, @r###"
     # PRQL Doc
 
     <div class="comparison">
@@ -299,12 +292,12 @@ this is an error
     <div>
     <h4>Error</h4>
 
-    <pre><code class="hljs language-undefined"><span style='color:#a00'>Error:</span>
+    <pre><code class="hljs language-undefined"><span style='color:var(--red,#a00)'>Error:</span>
        <span style='color:#949494'>╭─[</span>:1:1<span style='color:#949494'>]</span>
        <span style='color:#949494'>│</span>
      <span style='color:#949494'>1 │</span> this<span style='color:#b2b2b2'> is an error</span>
      <span style='color:#585858'>  │</span> ──┬─
-     <span style='color:#585858'>  │</span>   ╰─── Unknown name
+     <span style='color:#585858'>  │</span>   ╰─── Unknown name `this`
     <span style='color:#949494'>───╯</span>
     </code></pre>
 
@@ -318,8 +311,8 @@ this is an error
 
 #[test]
 fn test_table() -> Result<()> {
-    use insta::assert_display_snapshot;
-    let table = r###"
+    use insta::assert_snapshot;
+    let table = r"
 # Syntax
 
 | a |
@@ -331,9 +324,9 @@ fn test_table() -> Result<()> {
 |-----|
 | \|  |
 
-"###;
+";
 
-    assert_display_snapshot!(replace_examples(table)?, @r###"
+    assert_snapshot!(replace_examples(table)?, @r###"
     # Syntax
 
     |a|

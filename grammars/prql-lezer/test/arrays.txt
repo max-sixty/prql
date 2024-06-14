@@ -1,0 +1,59 @@
+# Array on one line
+
+filter [foo, bar, baz]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(Identifier,Identifier,Identifier)))))
+
+# Array on multiple lines
+
+filter [
+  foo,
+  bar,
+  baz
+]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(Identifier,Identifier,Identifier)))))
+
+# Array on multiple lines with blank lines
+
+filter [
+
+  foo,
+
+  bar,
+
+  baz
+
+]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(Identifier,Identifier,Identifier)))))
+
+# Array of integers
+
+filter [1, 2, 3]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(Integer,Integer,Integer)))))
+
+# Array of floats
+
+filter [1.1, 2.2, 3.3]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(Float,Float,Float)))))
+
+# Array of strings
+
+filter ["string", f"format", r"raw", s"server"]
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(ArrayExpression(String,FString,RString,SString)))))

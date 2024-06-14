@@ -1,0 +1,87 @@
+# Single-quoted string
+
+filter 'Hello'
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(String))))
+
+# Double-quoted string
+
+filter "Hello"
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(String))))
+
+# Single-quoted f-string
+
+filter f'Hello {name}!'
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(FString))))
+
+# Double-quoted f-string
+
+filter f"Hello {name}!"
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(FString))))
+
+# Single-quoted r-string
+
+filter r'version()'
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(RString))))
+
+# Double-quoted r-string
+
+filter r"version()"
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(RString))))
+
+# Single-quoted s-string
+
+filter s'version()'
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(SString))))
+
+# Double-quoted s-string
+
+filter s"version()"
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(SString))))
+
+# Triple-quoted single-quoted string
+
+filter '''Hello world!'''
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(String))))
+
+# Triple-quoted double-quoted string
+
+filter """Hello world!"""
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(String))))
+
+# Escape sequence
+
+filter "\xff"
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(String(Escape)))))

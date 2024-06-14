@@ -1,0 +1,71 @@
+# Integer
+
+filter 123
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Integer with underscore
+
+filter 123_456
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Integer with underscores
+
+filter 123_456_789
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Decimal
+
+filter 123.45
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Float))))
+
+# Scientific notation
+
+filter 123e10
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Number with time unit
+
+filter 5years
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(TimeUnit))))
+
+# Binary notation
+
+filter 0b1111
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Hex notation
+
+filter 0xff
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
+
+# Octal notation
+
+filter 0o777
+
+==>
+
+Query(Pipeline(CallExpression(Identifier,ArgList(Integer))))
