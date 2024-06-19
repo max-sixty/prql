@@ -38,8 +38,6 @@ fn test_expr_ast_code_matches() {
     -    Binary(BinaryExpr),
     -    Unary(UnaryExpr),
     @@ .. @@
-    -}
-    -
     -#[derive(Debug, EnumAsInner, PartialEq, Clone, Serialize, Deserialize)]
     -pub enum IndirectionKind {
     -    Name(String),
@@ -67,9 +65,6 @@ fn test_expr_ast_code_matches() {
     -    /// Assigned name of this generic type argument.
     -    pub name: String,
     -
-    -    /// Possible values of this type argument.
-    -    /// For a given instance of this function, the argument must be
-    -    /// exactly one of types in the domain.
     -    pub domain: Vec<Ty>,
     @@ .. @@
     -/// A value and a series of functions that are to be applied to that value one after another.

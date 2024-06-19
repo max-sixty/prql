@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use enum_as_inner::EnumAsInner;
-use prqlc_ast::token::Literal;
+use prqlc_ast::{token::Literal, Token};
 use serde::{Deserialize, Serialize};
 
 use super::{Lineage, TransformCall};
@@ -52,6 +52,7 @@ pub struct Expr {
     // TODO: maybe we should have a special ExprKind instead of this flag?
     #[serde(skip)]
     pub flatten: bool,
+    // pub comments_before: Vec<Token>,
 }
 
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Serialize, Deserialize, strum::AsRefStr)]

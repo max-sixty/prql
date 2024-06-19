@@ -84,17 +84,7 @@ impl TokenKind {
             bind_right,
         }
     }
-    pub fn is_aesthetic(&self) -> bool {
-        matches!(
-            self,
-            TokenKind::Comment(_)
-                | TokenKind::LineWrap(_)
-                | TokenKind::DocComment(_)
-                | TokenKind::NewLine
-        )
-    }
 }
-
 // Compound units, such as "2 days 3 hours" can be represented as `2days + 3hours`
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ValueAndUnit {

@@ -126,7 +126,9 @@ tasks:
 
   install-cargo-tools-binstall:
     cmds:
-      - cmd: cargo install --locked cargo-binstall
+      # Wait for required rust version to be a few months old before unpinning
+      # https://github.com/cargo-bins/cargo-binstall/issues/1778
+      - cmd: cargo install --locked cargo-binstall --version=1.6.9
         platforms: [linux, darwin]
       - "cargo binstall -y --locked {{.cargo_crates}}"
 
@@ -384,8 +386,8 @@ tasks:
 # The next two tasks are not used for either:
 #  - the Dockerfile (installing brew takes forever)
 #    so the Dockerfile simply installs hugo & nodejs directly
-#  - the "desktop setup" - it uses other tasks in the Taskfile.yml
-# They remain in the Taskfile.yml as a hint if they should ever be needed
+#  - the "desktop setup" - it uses other tasks in the Taskfile.yaml
+# They remain in the Taskfile.yaml as a hint if they should ever be needed
 
 # install-hugo:
 #   cmds:

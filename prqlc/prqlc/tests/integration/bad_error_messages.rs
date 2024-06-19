@@ -192,13 +192,13 @@ fn nested_groups() {
     )
     "###).unwrap_err(), @r###"
     Error:
-        ╭─[:2:5]
+        ╭─[:9:9]
         │
-      2 │ ╭─▶     from invoices
+      9 │ ╭─▶         aggregate {
         ┆ ┆
-     13 │ ├─▶     )
+     11 │ ├─▶         }
         │ │
-        │ ╰─────────── internal compiler error; tracked at https://github.com/PRQL/prql/issues/3870
+        │ ╰─────────────── internal compiler error; tracked at https://github.com/PRQL/prql/issues/3870
     ────╯
     "###);
 }
@@ -211,5 +211,42 @@ fn a_arrow_b() {
     x -> y
     "###).unwrap_err(), @r###"
     Error: internal compiler error; tracked at https://github.com/PRQL/prql/issues/4280
+    "###);
+}
+
+#[test]
+fn just_std() {
+    assert_snapshot!(compile(r###"
+    std
+    "###).unwrap_err(), @r###"
+    Error:
+       ╭─[:2:5]
+       │
+     2 │     std
+       │     ──┬─
+       │       ╰─── internal compiler error; tracked at https://github.com/PRQL/prql/issues/4474
+    ───╯
+    "###);
+}
+
+#[test]
+fn empty_tuple_from() {
+    assert_snapshot!(compile(r###"
+    from {}
+    "###).unwrap_err(), @r###"
+    Error: internal compiler error; tracked at https://github.com/PRQL/prql/issues/4317
+    "###);
+
+    assert_snapshot!(compile(r###"
+    from []
+    "###).unwrap_err(), @r###"
+    Error: internal compiler error; tracked at https://github.com/PRQL/prql/issues/4317
+    "###);
+
+    assert_snapshot!(compile(r###"
+    from {}
+    select a
+    "###).unwrap_err(), @r###"
+    Error: internal compiler error; tracked at https://github.com/PRQL/prql/issues/4317
     "###);
 }

@@ -1,26 +1,66 @@
 # PRQL Changelog
 
-## 0.11.5 — Unreleased
+## [unreleased]
 
 **Language**:
 
 **Features**:
 
+**Fixes**:
+
+- using `in` with an empty array pattern (e.g. `expr | in []`) will now output a
+  constant `false` condition instead of an `expr IN ()`, which is syntactically
+  invalid in some SQL dialects (@Globidev, #4598)
+
+**Documentation**:
+
+**Web**:
+
+**Integrations**:
+
+**Internal changes**:
+
+- Renamed `prql-compiler-macros` to `prqlc-macros` for consistency with other
+  crates (@max-sixty, #4565)
+
+**New Contributors**:
+
+## 0.12.2 — 2024-06-10
+
+0.12.2 is a very small release which renames `prql-js` to `prqlc-js` to match
+our standard naming scheme. Within node the package is imported as `prqlc`.
+
+It also fixes a mistake in the `prqlc-python` release pipeline.
+
+## 0.12.1 — 2024-06-09
+
+0.12.1 is a tiny hotfix release which fixes how intra-prql crate dependencies
+were specified.
+
+## 0.12.0 — 2024-06-08
+
+0.12.0 contains a few months of smaller features. Our focus has been on
+rewriting the resolver, an effort that is still ongoing.
+
+It has 239 commits from 12 contributors. Selected changes (most are not listed
+here, possibly we should be more conscientious about adding them...):
+
+**Features**:
+
+- Add `prqlc lex` command to the CLI (@max-sixty)
+- Add `prqlc debug lineage` command to the CLI, creating an expression lineage
+  graph from a query (@kgutwin, #4533)
 - Initial implementation of an experimental documentation generator that
   generates Markdown documentation from `.prql` files. (@vanillajonathan,
   #4152).
-- Add `prqlc lex` command to the CLI (@max-sixty)
-- Join `side` parameter can take a reference that resolves to a literal (note:
+- Join's `side` parameter can take a reference that resolves to a literal (note:
   this is an experimental feature which may change in the future) (@kgutwin,
   #4499)
-- Add `prqlc debug lineage` command to the CLI, creating an expression lineage
-  graph from a query (@kgutwin, #4533)
 
 **Fixes**:
 
 - Support expressions on left hand side of `std.in` operator. (@kgutwin, #4498)
-
-**Documentation**:
+- Prevent panic for `from {}` and `std` (@m-span, #4538)
 
 **Web**:
 
@@ -37,10 +77,16 @@
   icon pack extension shows a database icon for `.prql` files. (@EmmanuelBeziat)
 - [Tokei](https://github.com/XAMPPRocky/tokei), a source lines of code counter
   now has support for `.prql` files. (@vanillajonathan)
-
-**Internal changes**:
+- Add syntax highlight file for the [micro](https://micro-editor.github.io/)
+  text editor. (@vanillajonathan)
 
 **New Contributors**:
+
+- @srenatus, with #4274
+- @jacquayj, with #4332
+- @pdelewski, with #4337
+- @m-span, with #4422
+- @kgutwin, with #4498
 
 ## 0.11.4 — 2024-02-25
 
@@ -286,7 +332,7 @@ This release has 155 commits from 9 contributors. Selected changes:
 
 - Rename some of the internal crates, and refactored their paths in the repo.
   (@aljazerzen, #3683).
-- Add a `justfile` for developers who prefer that above our `Taskfile.yml`
+- Add a `justfile` for developers who prefer that above our `Taskfile.yaml`
   (@aljazerzen, #3681)
 
 **New Contributors**:

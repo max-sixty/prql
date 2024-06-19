@@ -36,43 +36,49 @@
 //!
 //! - Compile PRQL queries to SQL at run time.
 //!
-//!     ```
-//!     # fn main() -> Result<(), prqlc::ErrorMessages> {
-//!     let sql = prqlc::compile(
-//!         "from albums | select {title, artist_id}",
-//!          &prqlc::Options::default().no_format()
-//!     )?;
-//!     assert_eq!(&sql[..35], "SELECT title, artist_id FROM albums");
-//!     # Ok(())
-//!     # }
-//!     ```
+//!   ```
+//!   # fn main() -> Result<(), prqlc::ErrorMessages> {
+//!   let sql = prqlc::compile(
+//!       "from albums | select {title, artist_id}",
+//!        &prqlc::Options::default().no_format()
+//!   )?;
+//!   assert_eq!(&sql[..35], "SELECT title, artist_id FROM albums");
+//!   # Ok(())
+//!   # }
+//!   ```
 //!
 //! - Compile PRQL queries to SQL at build time.
 //!
-//!     For inline strings, use the `prql-compiler-macros` crate; for example:
-//!     ```ignore
-//!     let sql: &str = prql_to_sql!("from albums | select {title, artist_id}");
-//!     ```
+//!   For inline strings, use the `prqlc-macros` crate; for example:
+//!   ```ignore
+//!   let sql: &str = prql_to_sql!("from albums | select {title, artist_id}");
+//!   ```
 //!
-//!     For compiling whole files (`.prql` to `.sql`), call `prqlc`
-//!     from `build.rs`.
-//!     See [this example project](https://github.com/PRQL/prql/tree/main/prqlc/prqlc/examples/compile-files).
+//!   For compiling whole files (`.prql` to `.sql`), call `prqlc` from
+//!   `build.rs`. See [this example
+//!   project](https://github.com/PRQL/prql/tree/main/prqlc/prqlc/examples/compile-files).
 //!
 //! - Compile, format & debug PRQL from command line.
 //!
-//!     ```sh
-//!     $ cargo install --locked prqlc
-//!     $ prqlc compile query.prql
-//!     ```
+//!   ```sh
+//!   $ cargo install --locked prqlc
+//!   $ prqlc compile query.prql
+//!   ```
 //!
 //! ## Feature flags
 //!
-//! The following [feature flags](https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section) are available:
+//! The following feature flags are available:
 //!
-//! * `serde_yaml`: adapts the `Serialize` implementation for
-//!   [`crate::ast::expr::ExprKind::Literal`] within
-//!   [`crate::ir::rq::ExprKind`] to a custom one for `serde_yaml`, which
-//!   doesn't support the serialization of nested enums.
+//! * `cli`: enables the `prqlc` CLI binary. This is enabled by default. When
+//!   consuming this crate from another rust library, it can be disabled.
+//! * `test-dbs`: enables the `prqlc` in-process test databases as part of the
+//!   crate's tests. This significantly increases compile times so is not
+//!   enabled by default.
+//! * `test-dbs-external`: enables the `prqlc` external test databases,
+//!   requiring a docker container with the test databases to be running. Check
+//!   out the [integration tests](https://github.com/PRQL/prql/tree/main/prqlc/prqlc/tests/integration/dbs)
+//!   for more details.
+//! * `serde_yaml`: Enables serialization and deserialization of ASTs to YAML.
 //!
 //! ## Large binary sizes
 //!
@@ -93,22 +99,6 @@
 // yak-shaving exercise in the future.
 #![allow(clippy::result_large_err)]
 
-// use std::{collections::HashMap, path::PathBuf, str::FromStr};
-
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
-
-use anstream::adapter::strip_str;
-pub use error_message::{ErrorMessage, ErrorMessages, SourceLocation};
-pub use ir::Span;
-use once_cell::sync::Lazy;
-pub use prqlc_ast as ast;
-use prqlc_parser::err::error::ErrorSource;
-pub use prqlc_parser::err::error::{Error, Errors, MessageKind, Reason, WithErrorInfo};
-use prqlc_parser::TokenVec;
-use semver::Version;
-use serde::{Deserialize, Serialize};
-use strum::VariantNames;
-
 mod codegen;
 mod error_message;
 pub mod ir;
@@ -117,10 +107,29 @@ pub mod semantic;
 pub mod sql;
 mod utils;
 
+use std::sync::OnceLock;
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
+
+use anstream::adapter::strip_str;
+pub use error_message::{ErrorMessage, ErrorMessages, SourceLocation};
+pub use prqlc_ast as ast;
+use prqlc_parser::err::error::ErrorSource;
+pub use prqlc_parser::err::error::{Error, Errors, MessageKind, Reason, WithErrorInfo};
+use prqlc_parser::TokenVec;
+use semver::Version;
+use serde::{Deserialize, Serialize};
+use strum::VariantNames;
+
+pub use crate::ir::Span;
+
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
-pub static COMPILER_VERSION: Lazy<Version> =
-    Lazy::new(|| Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid prqlc version number"));
+pub fn compiler_version() -> &'static Version {
+    static COMPILER_VERSION: OnceLock<Version> = OnceLock::new();
+    COMPILER_VERSION.get_or_init(|| {
+        Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid prqlc version number")
+    })
+}
 
 /// Compile a PRQL string into a SQL string.
 ///

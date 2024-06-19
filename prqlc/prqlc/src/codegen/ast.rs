@@ -1,6 +1,7 @@
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
-use once_cell::sync::Lazy;
+use prqlc_ast::expr::*;
 use prqlc_ast::expr::{
     BinOp, BinaryExpr, ExprKind, Ident, IndirectionKind, InterpolateItem, SwitchCase, UnOp,
     UnaryExpr,
@@ -10,6 +11,7 @@ use regex::Regex;
 
 use super::{WriteOpt, WriteSource};
 use crate::codegen::SeparatedExprs;
+use crate::ir::pl;
 use crate::{ast::*, ir::pl::PlFold};
 
 pub(crate) fn write_expr(expr: &Expr) -> String {
@@ -411,20 +413,26 @@ impl WriteSource for Ident {
     }
 }
 
-pub static KEYWORDS: Lazy<HashSet<&str>> = Lazy::new(|| {
-    HashSet::from_iter([
-        "let", "into", "case", "prql", "type", "module", "internal", "func",
-    ])
-});
+fn keywords() -> &'static HashSet<&'static str> {
+    static KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    KEYWORDS.get_or_init(|| {
+        HashSet::from_iter([
+            "let", "into", "case", "prql", "type", "module", "internal", "func",
+        ])
+    })
+}
 
-pub static VALID_PRQL_IDENT: Lazy<Regex> = Lazy::new(|| {
-    // Pomsky expression (regex is to Pomsky what SQL is to PRQL):
-    // ^ ('*' | [ascii_alpha '_$'] [ascii_alpha ascii_digit '_$']* ) $
-    Regex::new(r"^(?:\*|[a-zA-Z_$][a-zA-Z0-9_$]*)$").unwrap()
-});
+fn valid_prql_ident() -> &'static Regex {
+    static VALID_PRQL_IDENT: OnceLock<Regex> = OnceLock::new();
+    VALID_PRQL_IDENT.get_or_init(|| {
+        // Pomsky expression (regex is to Pomsky what SQL is to PRQL):
+        // ^ ('*' | [ascii_alpha '_$'] [ascii_alpha ascii_digit '_$']* ) $
+        Regex::new(r"^(?:\*|[a-zA-Z_$][a-zA-Z0-9_$]*)$").unwrap()
+    })
+}
 
 pub fn write_ident_part(s: &str) -> String {
-    if VALID_PRQL_IDENT.is_match(s) && !KEYWORDS.contains(s) {
+    if valid_prql_ident().is_match(s) && !keywords().contains(s) {
         s.to_string()
     } else {
         format!("`{}`", s)
@@ -506,7 +514,7 @@ impl AestheticTokensAdder {
 use crate::Result;
 
 impl PlFold for AestheticTokensAdder {
-    fn fold_expr(&mut self, expr: Expr) -> Result<Expr> {
+    fn fold_expr(&mut self, expr: pl::Expr) -> Result<pl::Expr> {
         let Some(next_token) = self.aesthetic_tokens.last() else {
             return Ok(expr);
         };
@@ -517,9 +525,10 @@ impl PlFold for AestheticTokensAdder {
         // previous_comments. This can only happen at the start of a statement;
         // otherwise we've already grabbed the comment and added it to a
         // previous expr.
-        if next_token.span.start < expr.span.start {
-            expr.comments_before
-        }
+
+        // if next_token.span.start < expr.span.unwrap().start {
+        //     expr.comments_before
+        // }
 
         // expr.kind = match expr.kind {
         //     // these are values already

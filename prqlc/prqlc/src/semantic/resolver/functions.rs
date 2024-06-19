@@ -273,7 +273,10 @@ impl Resolver<'_> {
 
                 // add relation frame into scope
                 if partial_application_position.is_none() {
-                    let frame = arg.lineage.as_ref().unwrap();
+                    let frame = arg
+                        .lineage
+                        .as_ref()
+                        .ok_or_else(|| Error::new_bug(4317).with_span(closure.body.span))?;
                     if is_last {
                         self.root_mod.module.insert_frame(frame, NS_THIS);
                     } else {
@@ -472,7 +475,7 @@ fn env_of_closure(closure: Func) -> (Module, Expr, Box<Option<Ty>>) {
 
 pub fn expr_of_func(func: Box<Func>, span: Option<Span>) -> Box<Expr> {
     let ty = TyFunc {
-        args: func
+        params: func
             .params
             .iter()
             .skip(func.args.len())
