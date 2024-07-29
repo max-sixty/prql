@@ -1,4 +1,5 @@
 use prqlc_parser::{
+    lexer,
     lexer::{lex_source, lr::Tokens},
     parser::{parse_lr_to_pr, pr},
 };
@@ -15,10 +16,15 @@ pub fn fmt_of_ast(tokens: Tokens, pr: &Vec<pr::Stmt>) -> String {
     for token in tokens.0 {
         let t = token.kind;
         match t {
-            Ident(ident) => r += &ident,
             Start => {}
+            Literal(l) => r += &l.to_string(),
+            // Ident(ident) => r += &ident,
+            Control(c) => r += &c.to_string(),
             // Comment => r += &token.text,
-            _ => todo!(),
+            _ => {
+                dbg!(&t);
+                todo!()
+            }
         }
     }
     r
@@ -27,12 +33,11 @@ pub fn fmt_of_ast(tokens: Tokens, pr: &Vec<pr::Stmt>) -> String {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use prqlc_parser::lexer::lex_source;
 
     use super::*;
 
     #[test]
     fn test_fmt() {
-        assert_snapshot!(fmt("from artists"), @"fromartists");
+        assert_snapshot!(fmt("[2, 3, 4]"), @"[2,3,4]");
     }
 }

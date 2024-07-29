@@ -116,6 +116,7 @@ pub use prqlc_parser::span::Span;
 mod codegen;
 pub mod debug;
 mod error_message;
+pub mod fmt;
 pub mod ir;
 pub mod parser;
 pub mod semantic;
