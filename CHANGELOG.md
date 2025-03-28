@@ -16,6 +16,8 @@
 
 **Internal changes**:
 
+- Update sqlparser from 0.53.0 to 0.54.0
+
 **New Contributors**:
 
 ## 0.13.4 — 2025-03-26
